@@ -1,7 +1,7 @@
 ## LittleFuzz
 
 A tiny reflection-based fuzzer written in Java, perfect for unit-testing. Its purpose is to assign random 
-values to member fields using with customizable value generation and field discovery strategies. 
+values to member fields using customizable value generation and field discovery strategies. 
 
 ### Requirements (using)
 
