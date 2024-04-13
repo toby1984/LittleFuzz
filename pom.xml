@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.code-sourcery.littlefuzz</groupId>
   <artifactId>littlefuzz-parent</artifactId>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.0.2</version>
   <name>LittleFuzz Parent</name>
   <packaging>pom</packaging>
   <description>A tiny reflection-based fuzzer written in Java, perfect for unit-testing</description>
@@ -74,7 +74,7 @@
     <connection>scm:git:git@github.com:toby1984/LittleFuzz.git</connection>
     <developerConnection>scm:git:git@github.com:toby1984/LittleFuzz.git</developerConnection>
     <url>https://github.com/toby1984/LittleFuzz</url>
-    <tag>HEAD</tag>
+    <tag>littlefuzz-parent-1.0.2</tag>
   </scm>
   <licenses>
     <license>
@@ -100,13 +100,13 @@
       <dependency>
         <groupId>de.code-sourcery.littlefuzz</groupId>
         <artifactId>littlefuzz-core</artifactId>
-        <version>1.0.2-SNAPSHOT</version>
+        <version>1.0.2</version>
       </dependency>
 
       <dependency>
         <groupId>de.code-sourcery.littlefuzz</groupId>
         <artifactId>littlefuzz-extra</artifactId>
-        <version>1.0.2-SNAPSHOT</version>
+        <version>1.0.2</version>
       </dependency>
 
       <dependency>
