@@ -1,10 +1,11 @@
-package de.codesourcery.littlefuzz.core;
+package de.codesourcery.littlefuzz.extra;
 
 import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -14,8 +15,9 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import de.codesourcery.littlefuzz.DifferentValueGenerator;
+import de.codesourcery.littlefuzz.core.Fuzzer;
+import de.codesourcery.littlefuzz.core.IFieldValueGenerator;
+import de.codesourcery.littlefuzz.core.IFuzzingRule;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -25,13 +27,13 @@ import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class FuzzerTest
+class ExtraFuzzerTest
 {
-    class Superclass {
+    static class Superclass {
         Long a;
     }
 
-    class Subclass extends Superclass {
+    static class Subclass extends Superclass {
 
         static Long c;
 
@@ -91,6 +93,7 @@ class FuzzerTest
         A,B,C
     }
 
+    private GeneratorHelpers generatorHelpers;
     private DifferentValueGenerator diffValues;
     private Fuzzer f;
 
@@ -105,8 +108,9 @@ class FuzzerTest
     @BeforeEach
     public void setup() {
         diffValues = new DifferentValueGenerator( 10 );
-        f = new Fuzzer( 0xdeadbeefL );
-        f.setupDefaultRules( differentValues() );
+        f = new Fuzzer();
+        generatorHelpers = new GeneratorHelpers( new Random() );
+        generatorHelpers.setupDefaultRules( f, differentValues() );
     }
 
     @Test
@@ -114,29 +118,26 @@ class FuzzerTest
     {
         for (int i = 0 ; i < 10 ; i++)
         {
-            assertThat( f.pickRandomEnumValue( EmptyEnum.class ) ).isEmpty();
+            assertThat( generatorHelpers.pickRandomEnumValue( EmptyEnum.class ) ).isEmpty();
         }
 
         final Set<NonEmptyEnum> toTest = new HashSet<>();
         for (int i = 0 ; i < 10 ; i++)
         {
-            final Optional<Object> v = f.pickRandomEnumValue( NonEmptyEnum.class );
+            final Optional<Object> v = generatorHelpers.pickRandomEnumValue( NonEmptyEnum.class );
             assertThat( v ).isPresent();
             toTest.add( (NonEmptyEnum) v.get() );
         }
         assertThat( toTest ).hasSizeGreaterThan( 1 );
     }
 
-    class FastTest {
+    static class FastTest {
         byte value;
     }
 
     @Test
     public void testDefaultRulesDoNotGenerateIdenticalValues() throws IllegalAccessException
     {
-        f = new Fuzzer();
-        f.setupDefaultRules( differentValues() );
-
         final FastTest t = new FastTest();
         int retires = 10000;
         int sameValue = 0;
@@ -159,7 +160,7 @@ class FuzzerTest
     public void testDefaultRulesGenerateIdenticalValues() throws IllegalAccessException
     {
         f = new Fuzzer();
-        f.setupDefaultRules( null );
+        generatorHelpers.setupDefaultRules( f, null );
 
         final FastTest t = new FastTest();
         int retires = 10000;
@@ -185,14 +186,14 @@ class FuzzerTest
         //
         for (int i = 0 ; i < 100 ; i++)
         {
-            final String s = f.createRandomString( 0, 0 );
+            final String s = generatorHelpers.createRandomString( 0, 0 );
             assertThat( s ).isEmpty();
         }
 
         //
         for (int i = 0 ; i < 100 ; i++)
         {
-            final String s = f.createRandomString( 10, 10 );
+            final String s = generatorHelpers.createRandomString( 10, 10 );
             assertThat( s ).hasSize( 10 );
         }
 
@@ -200,7 +201,7 @@ class FuzzerTest
         final Set<String> strings = new HashSet<>();
         for (int i = 0 ; i < 100 ; i++)
         {
-            final String s = f.createRandomString( 0, 10 );
+            final String s = generatorHelpers.createRandomString( 0, 10 );
             strings.add( s );
             assertThat( s.length() ).isBetween( 0, 10 );
         }
@@ -232,30 +233,10 @@ class FuzzerTest
     }
 
     @Test
-    public void testSuperclassIsConsidered() throws IllegalAccessException
-    {
-        final Subclass x = new Subclass();
-        f.assignRandomValues( x, true );
-        assertThat( x.a ).isNotNull();
-        assertThat( x.b ).isNotNull();
-        assertThat( Subclass.c ).isNull();
-    }
-
-    @Test
-    public void testSuperclassIsConsidered2() throws IllegalAccessException
-    {
-        final Subclass x = new Subclass();
-        f.assignRandomValues( x );
-        assertThat( x.a ).isNotNull();
-        assertThat( x.b ).isNotNull();
-        assertThat( Subclass.c ).isNull();
-    }
-
-    @Test
     public void testGenerateRandomMap() {
 
         final Map<String, String> map =
-            f.createRandomStringMap( 1, 5, 10, 20 );
+            generatorHelpers.createRandomStringMap( 1, 5, 10, 20 );
 
         for ( final Map.Entry<String, String> entry : map.entrySet() )
         {
@@ -270,7 +251,7 @@ class FuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                f.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, true );
+                generatorHelpers.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, true );
             assertThat( l ).hasSize( 3 );
         }
     }
@@ -280,7 +261,7 @@ class FuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                f.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, false );
+                generatorHelpers.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, false );
             assertThat( l ).hasSize( 3 );
             assertThat( new HashSet<>(l) ).hasSize( l.size() );
         }
@@ -291,7 +272,7 @@ class FuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                f.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, true );
+                generatorHelpers.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, true );
             assertThat( l ).hasSize( 3 );
         }
     }
@@ -301,39 +282,14 @@ class FuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                f.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, false );
+                generatorHelpers.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, false );
             assertThat( l ).hasSize( 3 );
             assertThat( new HashSet<>(l) ).hasSize( l.size() );
         }
     }
 
-    @Test
-    public void testSuperclassIsNotConsidered() throws IllegalAccessException
-    {
-        final Subclass x = new Subclass();
-        f.assignRandomValues( x, false );
-        assertThat( x.a ).isNull();
-        assertThat( x.b ).isNotNull();
-        assertThat( Subclass.c ).isNull();
-    }
-
-    class Custom {
+    static class Custom {
         long value;
-    }
-
-    @Test
-    public void testCustomRule() throws IllegalAccessException
-    {
-        f.setTypeRule( IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
-        final Custom obj = f.assignRandomValues( new Custom() );
-        assertThat( obj.value ).isEqualTo( 42L );
-    }
-
-    @Test
-    public void testAddTypeRuleFailsOnConflict()
-    {
-        assertThatThrownBy( () -> f.addTypeRule( IFuzzingRule.fromSupplier( () -> 42L ), Long.TYPE )
-        ).isInstanceOf( IllegalArgumentException.class );
     }
 
     @Test
@@ -347,33 +303,7 @@ class FuzzerTest
         assertThatThrownBy( () -> f.assignRandomValues( obj ) ).isInstanceOf( RuntimeException.class );
     }
 
-    @Test
-    public void testIgnoringEqualityCheckWorks() throws IllegalAccessException
-    {
-        final Custom obj = new Custom();
-        obj.value = 42L;
-
-        f.setTypeRule( IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
-        f.assignRandomValues( obj );
-    }
-
-    class RuleTest {
-        int a,b;
-    }
-
-    @Test
-    public void testFieldRules() throws IllegalAccessException
-    {
-        final RuleTest obj = new RuleTest();
-        f.addFieldRule( RuleTest.class, "a", IFuzzingRule.fromSupplier( () -> 42 ) );
-        f.addFieldRule( RuleTest.class, "b", IFuzzingRule.fromSupplier( () -> 43 ) );
-
-        f.assignRandomValues( obj );
-        assertThat( obj.a ).isEqualTo( 42 );
-        assertThat( obj.b ).isEqualTo( 43 );
-    }
-
-    class EqualityTest {
+    static class EqualityTest {
         Superclass value;
     }
 
@@ -418,42 +348,5 @@ class FuzzerTest
         f.assignRandomValues( obj );
         assertThat( obj.value ).isInstanceOf( Subclass.class );
         verify( rule );
-    }
-
-    class ClearTest {int a;}
-
-    @Test
-    void testClearRules() throws IllegalAccessException
-    {
-        f.setupDefaultRules( differentValues() );
-        f.assignRandomValues( new ClearTest() );
-        f.clearRules();
-        assertThatThrownBy( () -> f.assignRandomValues( new ClearTest() ) ).isInstanceOf( RuntimeException.class );
-    }
-
-    @Test
-    void testClearTypeRules() throws IllegalAccessException
-    {
-        f.setupDefaultRules( differentValues() );
-        f.assignRandomValues( new ClearTest() );
-        f.clearTypeRules();
-        assertThatThrownBy( () -> f.assignRandomValues( new ClearTest() ) ).isInstanceOf( RuntimeException.class );
-    }
-
-    class ClearTest2 {
-        int a;
-        ClearTest b;
-    }
-
-    @Test
-    void testClearFieldRules() throws IllegalAccessException
-    {
-        f.clearTypeRules();
-        f.addTypeRule( (context,setter) -> setter.set( (int) context.getFieldValue() + 1), Integer.TYPE);
-
-        f.addFieldRule( ClearTest2.class, "b", (fieldInfo, setter) -> {} );
-        f.assignRandomValues( new ClearTest2() );
-        f.clearFieldRules();
-        assertThatThrownBy( () -> f.assignRandomValues( new ClearTest2() ) ).isInstanceOf( RuntimeException.class );
     }
 }

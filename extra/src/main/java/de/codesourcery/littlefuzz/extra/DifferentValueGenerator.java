@@ -1,4 +1,4 @@
-package de.codesourcery.littlefuzz;
+package de.codesourcery.littlefuzz.extra;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,13 +8,16 @@ import org.apache.commons.lang3.Validate;
 import de.codesourcery.littlefuzz.core.IFieldValueGenerator;
 
 /**
- * Helper class that can wrap {@link IFieldValueGenerator field value
- * generators} so that they always return a different value than the current field already has.
+ * Helper class that can wrap {@link IFieldValueGenerator field value generators}
+ * so that they always generate a value that is not equal to the field's current value.
  *
  * <p>
  * Because equality is a tricky problem and not all Java classes come with a suitable {@link Object#equals(Object)}
- * method, this class allows you to register your own {@link #addEqualityRule(Class, BiPredicate) equality rules.}
+ * method, this helper class allows you to register your own {@link #addEqualityRule(Class, BiPredicate) equality rules.}
  * </p>
+ * <p>If no suitable rule is configured, the default behaviour of this class is to fall-back to
+ * {@link Object#equals(Object)}.</p>
+ *
  * @author tobias.gierke@code-sourcery.de
  */
 public class DifferentValueGenerator

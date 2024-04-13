@@ -1,9 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.code-sourcery.littlefuzz</groupId>
-  <artifactId>littlefuzz</artifactId>
+  <artifactId>littlefuzz-parent</artifactId>
   <version>1.0.0-SNAPSHOT</version>
-  <name>LittleFuzz</name>
+  <name>LittleFuzz Parent</name>
+  <packaging>pom</packaging>
   <description>A tiny reflection-based fuzzer written in Java, perfect for unit-testing</description>
   <url>https://github.com/toby1984/LittleFuzz</url>
   <properties>
@@ -95,6 +96,18 @@
   </developers>
   <dependencyManagement>
     <dependencies>
+
+      <dependency>
+        <groupId>de.code-sourcery.littlefuzz</groupId>
+        <artifactId>littlefuzz-core</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+      </dependency>
+
+      <dependency>
+        <groupId>de.code-sourcery.littlefuzz</groupId>
+        <artifactId>littlefuzz-extra</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+      </dependency>
 
       <dependency>
         <groupId>org.apache.commons</groupId>
@@ -385,4 +398,8 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+  <modules>
+    <module>core</module>
+    <module>extra</module>
+  </modules>
 </project>

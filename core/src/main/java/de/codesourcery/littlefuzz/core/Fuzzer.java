@@ -35,9 +35,6 @@ public class Fuzzer
 {
     private boolean debug;
 
-    /** Default set of characters to use when generating random strings */
-    public static final char[] CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
-
     private static final Pattern THIS_PTR = Pattern.compile( "^this\\$\\d+$" );
 
     private record FieldMatch(Class<?> clazz, String fieldName) {
@@ -119,12 +116,6 @@ public class Fuzzer
     public interface IContext
     {
         /**
-         * Returns the random generator to use.
-         * @return random generator
-         */
-        RandomGenerator getRandomGenerator();
-
-        /**
          * Returns the field that is currently being fuzzed.
          *
          * @return field
@@ -151,23 +142,14 @@ public class Fuzzer
     {
         public final Fuzzer fuzzer;
         public final Object object;
-        public final RandomGenerator randomGenerator;
         public Field currentField;
 
-        private FieldInfo(Fuzzer fuzzer, Object object, RandomGenerator randomGenerator)
+        private FieldInfo(Fuzzer fuzzer, Object object)
         {
             Validate.notNull( fuzzer, "fuzzer must not be null" );
             Validate.notNull( object, "object must not be null" );
-            Validate.notNull( randomGenerator, "randomGenerator must not be null" );
             this.fuzzer = fuzzer;
             this.object = object;
-            this.randomGenerator = randomGenerator;
-        }
-
-        @Override
-        public RandomGenerator getRandomGenerator()
-        {
-            return randomGenerator;
         }
 
         @Override
@@ -188,8 +170,6 @@ public class Fuzzer
             return currentField.get(object);
         }
     }
-
-    private final RandomGenerator randomGenerator;
 
     // rules how to generate values of a given type.
     // the type is the map key while the generation rule is the value
@@ -212,25 +192,6 @@ public class Fuzzer
      * @see Fuzzer(long)
      */
     public Fuzzer() {
-        this( System.nanoTime() );
-    }
-
-    /**
-     * Creates a new instance with the random seed set
-     * using {@link System#nanoTime()}.
-     */
-    public Fuzzer(long seed) {
-        this( new Random( seed ) );
-    }
-
-    /**
-     * Creates a new instance with a given random generator.
-     *
-     * @param random random generator to use
-     */
-    public Fuzzer(RandomGenerator random) {
-        Validate.notNull( random, "random must not be null" );
-        this.randomGenerator = random;
     }
 
     /**
@@ -259,33 +220,6 @@ public class Fuzzer
      */
     public void clearTypeRules() {
         this.typeRules.clear();
-    }
-
-    /**
-     * Clears all field and type rules and sets up default rules for JDK built-in datatypes.
-     *
-     * @param wrapperGenerator optional function to wrap the default field value generators before registering
-     *                         them. May be <code>null</code> to not perform any wrapping at all.
-     * @see #clearRules()
-     */
-    public void setupDefaultRules(Function<Supplier<?>, IFieldValueGenerator> wrapperGenerator) {
-
-        clearRules();
-
-        if ( wrapperGenerator == null ) {
-            wrapperGenerator = (toWrap) -> (ctx) -> toWrap.get();
-        }
-
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> createRandomString( 1, 20 ) ) ), String.class);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextLong ) ), Long.class, Long.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextInt ) ), Integer.class, Integer.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> (short) randomGenerator.nextInt() ) ), Short.class, Short.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextFloat ) ), Float.class, Float.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextDouble ) ), Double.class, Double.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> (byte) randomGenerator.nextInt() ) ), Byte.class, Byte.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextBoolean ) ), Boolean.class, Boolean.TYPE);
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ) ) ), java.time.Instant.class );
-        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ).atZone( ZoneId.systemDefault() ) ) ), ZonedDateTime.class  );
     }
 
     /**
@@ -354,131 +288,6 @@ public class Fuzzer
     }
 
     /**
-     * Randomly picks a certain number of distinct elements from a given collection.
-     *
-     * @param collection collection to pick elements from
-     * @param noElementsToPick number of elements to pick
-     * @param repetitionAllowed whether the same element may be picked more than once
-     * @return a list containing the selected elements
-     * @param <T> collection type
-     */
-    public <T> List<T> pickRandomElements(Collection<T> collection, int noElementsToPick, boolean repetitionAllowed) {
-
-        noElementsToPick = Math.min( collection.size(), noElementsToPick );
-        if ( noElementsToPick == 0 ) {
-            return new ArrayList<>(0);
-        }
-
-        final List<T> result = new ArrayList<>(noElementsToPick);
-        if ( repetitionAllowed ) {
-
-            if ( collection instanceof List<T> list) {
-                while (result.size() < noElementsToPick)
-                {
-                    final int idx = randomGenerator.nextInt( 0, list.size() );
-                    result.add( list.get( idx ) );
-                }
-            }
-            else {
-                while (result.size() < noElementsToPick)
-                {
-                    final Iterator<T> it = collection.iterator();
-                    while (it.hasNext() && result.size() < noElementsToPick)
-                    {
-                        final T obj = it.next();
-                        if ( randomGenerator.nextBoolean() )
-                        {
-                            result.add( obj );
-                        }
-                    }
-                }
-            }
-            return result;
-        }
-        final Set<Integer> alreadyPicked = new HashSet<>();
-
-        if ( collection instanceof List<T> list) {
-            while (result.size() < noElementsToPick)
-            {
-                final int idx = randomGenerator.nextInt( 0, list.size() );
-                if ( ! alreadyPicked.contains( idx ) )
-                {
-                    alreadyPicked.add( idx );
-                    result.add( list.get( idx ) );
-                }
-            }
-        }
-        else
-        {
-            while (result.size() < noElementsToPick)
-            {
-                final Iterator<T> it = collection.iterator();
-                int idx = 0;
-                while (it.hasNext() && result.size() < noElementsToPick)
-                {
-                    final T obj = it.next();
-                    if ( randomGenerator.nextBoolean() && ! alreadyPicked.contains( idx ) )
-                    {
-                        alreadyPicked.add( idx );
-                        result.add( obj );
-                    }
-                    idx++;
-                }
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Creates a map with random strings.
-     *
-     * @param minKeyLen min. length of map keys
-     * @param maxKeyLen max. length of map keys
-     * @param minValueLen min. length of map values
-     * @param maxValueLen max. length of map values
-     * @return random map
-     */
-    public Map<String,String> createRandomStringMap(int minKeyLen, int maxKeyLen, int minValueLen, int maxValueLen) {
-        final int size = randomGenerator.nextInt( 1, 30 );
-        final Map<String, String> map = new HashMap<>();
-        for ( int i = 0 ; i < size ; i++ ) {
-            final String key = createRandomString( minKeyLen, maxKeyLen );
-            final String value = createRandomString( minValueLen, maxValueLen );
-            map.put( key, value );
-        }
-        return map;
-    }
-
-    /**
-     * Creates a random string with a random length.
-     * @param minLen minimum length the string should have (inclusive)
-     * @param maxLen maximum length the string should have (inclusive)
-     * @return random string
-     */
-    public String createRandomString(int minLen, int maxLen) {
-        return createRandomString( minLen, maxLen, CHARS );
-    }
-    /**
-     * Creates a random string with a random length.
-     * @param minLen minimum length the string should have (inclusive)
-     * @param maxLen maximum length the string should have (inclusive)
-     * @param chars set of characters to create random string from.
-     * @return random string
-     */
-    public String createRandomString(int minLen, int maxLen, char[] chars) {
-        Validate.isTrue( minLen >= 0 );
-        Validate.isTrue( maxLen >= minLen );
-        Validate.isTrue( chars != null && chars.length > 0 , "need at least one character to choose from");
-
-        final int len = minLen == maxLen ? minLen : minLen + randomGenerator.nextInt( maxLen - minLen -1 );
-        final StringBuilder buffer = new StringBuilder();
-        for ( int i = len ; i > 0 ; i-- ) {
-            buffer.append( CHARS[randomGenerator.nextInt( 0, CHARS.length )] );
-        }
-        return buffer.toString();
-    }
-
-    /**
      * Assigns random values to all declared or inherited non-static member fields of an object.
      *
      * @param obj object whose fields should have random values assigned
@@ -506,7 +315,7 @@ public class Fuzzer
         if ( debug ) {
             System.out.println( "Randomizing object " + obj.getClass().getName() );
         }
-        final FieldInfo info = new FieldInfo(this , obj, randomGenerator );
+        final FieldInfo info = new FieldInfo(this , obj );
         for ( Field field : fieldResolver.getFields( obj.getClass(), includingInheritedFields ) )
         {
             info.currentField = field;
@@ -516,24 +325,6 @@ public class Fuzzer
             } );
         }
         return obj;
-    }
-
-    /**
-     * Picks a random value from an enumeration.
-     *
-     * @param enumClass enum to pick values from
-     * @return random value or <code>Optional.empty()</code> if the enumeration has no values at all
-     */
-    public Optional<Object> pickRandomEnumValue(Class<?> enumClass) {
-        Validate.notNull( enumClass, "enumClass must not be null" );
-        Validate.isTrue( enumClass.isEnum(), "Not an enum class: "+enumClass);
-
-        final Object[] values = enumClass.getEnumConstants();
-        if ( values.length == 0 ) {
-            return Optional.empty();
-        }
-        final int idx = randomGenerator.nextInt( 0, values.length );
-        return Optional.of( values[idx] );
     }
 
     private void assignRandomValue(IContext fieldInfo, IFieldSetter setter) throws IllegalAccessException {
