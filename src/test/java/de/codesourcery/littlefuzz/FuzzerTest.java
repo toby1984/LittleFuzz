@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -90,16 +91,16 @@ class FuzzerTest
 
     private Fuzzer f;
 
-    private static Fuzzer.IValueSupplier differentValues(Supplier<?> s) {
-        return Fuzzer.IValueSupplier.differentValue( ctx -> s.get(), 10 );
+    private static Fuzzer.IFieldValueGenerator differentValues(Supplier<?> s) {
+        return Fuzzer.IFieldValueGenerator.differentValue( ctx -> s.get(), 10 );
     }
 
-    private static Function<Supplier<?>, Fuzzer.IValueSupplier> differentValues() {
+    private static Function<Supplier<?>, Fuzzer.IFieldValueGenerator> differentValues() {
         return differentValues( 10 );
     }
 
-    private static Function<Supplier<?>, Fuzzer.IValueSupplier> differentValues(int attempts) {
-        return supplier -> Fuzzer.IValueSupplier.differentValue( ctx -> supplier.get(), attempts );
+    private static Function<Supplier<?>, Fuzzer.IFieldValueGenerator> differentValues(int attempts) {
+        return supplier -> Fuzzer.IFieldValueGenerator.differentValue( ctx -> supplier.get(), attempts );
     }
 
     @BeforeEach
@@ -389,7 +390,7 @@ class FuzzerTest
     void testRequiresCustomEqualityRule() {
 
         f.addFieldRule( EqualityTest.class, "value", Fuzzer.IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) ) ;
-        final Fuzzer.IEqualityRule rule = EasyMock.createMock(Fuzzer.IEqualityRule.class);
+        final BiPredicate<Object,Object> rule = EasyMock.createMock( BiPredicate.class);
         replay( rule );
 
         f.addEqualityRule( Superclass.class, rule );
@@ -404,8 +405,8 @@ class FuzzerTest
     void testCustomEqualityRule() throws IllegalAccessException {
 
         f.addFieldRule( EqualityTest.class, "value", Fuzzer.IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) );
-        final Fuzzer.IEqualityRule rule = EasyMock.createMock(Fuzzer.IEqualityRule.class);
-        expect( rule.equals( anyObject(), anyObject() ) ).andReturn( false );
+        final BiPredicate<Object,Object> rule = EasyMock.createMock(BiPredicate.class);
+        expect( rule.test( anyObject(), anyObject() ) ).andReturn( false );
         replay( rule );
 
         f.addEqualityRule( Superclass.class, rule );
