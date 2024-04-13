@@ -3,7 +3,7 @@
   <parent>
     <groupId>de.code-sourcery.littlefuzz</groupId>
     <artifactId>littlefuzz-parent</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3-SNAPSHOT</version>
   </parent>
   <artifactId>littlefuzz-core</artifactId>
   <name>LittleFuzz Core</name>
