@@ -3,7 +3,6 @@ package de.codesourcery.littlefuzz;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -18,8 +17,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.Validate;
 
@@ -35,6 +36,9 @@ import org.apache.commons.lang3.Validate;
 public class Fuzzer
 {
     private boolean debug;
+
+    /** Default set of characters to use when generating random strings */
+    public static final char[] CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
 
     private static final Pattern THIS_PTR = Pattern.compile( "^this\\$\\d+$" );
 
@@ -62,8 +66,8 @@ public class Fuzzer
      *
      * @author tobias.gierke@code-sourcery.de
      */
-    public interface IFieldProvider {
-
+    public interface IFieldResolver
+    {
         /**
          *
          * @param clazz the class to get fields for, never
@@ -107,7 +111,91 @@ public class Fuzzer
      */
     @FunctionalInterface
     public interface IValueSupplier {
-        Object getValue(Fuzzer fuzzer) throws IllegalAccessException;
+        /**
+         * Generate a new field value.
+         *
+         * @param context context information
+         * @return new field value to assign
+         * @throws IllegalAccessException may be thrown if implementation tries to access the current field and fails.
+         */
+        Object getValue(IContext context) throws IllegalAccessException;
+
+        /**
+         * Wraps an {@link IValueSupplier} so that it never returns the value the current field already has.
+         *
+         * This method relies on the {@link IEqualityRule equality rule} configured on the current fuzzer.
+         *
+         * @param other
+         * @param attempts how often to attempt generating a different value before giving up and throwing a <code>RuntimeException</code>.
+         * @return wrapped value supplier
+         * @see IEqualityRule
+         * @see Fuzzer#setDefaultEqualityRule(IEqualityRule)
+         * @see Fuzzer#addEqualityRule(Class, IEqualityRule)
+         * @see IContext#getEqualityRule(Object, Object)
+         */
+        static IValueSupplier differentValue(IValueSupplier other, int attempts) {
+            return context -> {
+                final Object currentValue = context.getFieldValue();
+                int retries = attempts;
+                while( retries-- > 0 ) {
+                    final Object newValue = other.getValue( context );
+                    if ( ! context.getEqualityRule( currentValue, newValue ).equals( currentValue, newValue ) ) {
+                        return newValue;
+                    }
+                }
+                throw new RuntimeException( "Bailing out after failing to come up with a different value for " + currentValue + " for" +
+                    " " + attempts + " times." );
+            };
+        }
+    }
+
+    /**
+     * Provides access to information about the member field that
+     * is currently being fuzzed.
+     *
+     * @author tobias.gierke@code-sourcery.
+     */
+    public interface IContext
+    {
+        /**
+         * Returns the {@link IEqualityRule equality rule} to use for two given values.
+         *
+         * @param a value A
+         * @param b value B
+         * @return the rule to use
+         * @throws RuntimeException when one object is a subclass of the other and no
+         *                          suitable equality rule has been {@link #addEqualityRule(Class, IEqualityRule) registered}.
+         * @see #addEqualityRule(Class, IEqualityRule)
+         * @see #setDefaultEqualityRule(IEqualityRule)
+         */
+        IEqualityRule getEqualityRule(Object a, Object b);
+
+        /**
+         * Returns the random generator to use.
+         * @return random generator
+         */
+        RandomGenerator getRandomGenerator();
+
+        /**
+         * Returns the field that is currently being fuzzed.
+         *
+         * @return field
+         */
+        Field getField();
+
+        /**
+         * Returns the fuzzer instance.
+         * @return
+         */
+        Fuzzer getFuzzer();
+
+        /**
+         * Returns the value of the current field
+         * @return field value, may be <code>null</code>
+         * @throws IllegalAccessException if the field is inaccessible
+         * @see #getField()
+         */
+        Object getFieldValue() throws IllegalAccessException;
     }
 
     /**
@@ -119,67 +207,40 @@ public class Fuzzer
     public interface IFuzzingRule {
 
         /**
-         * A rule that does nothing/does not assign a field value.
+         * A no-op rule that does nothing.
          */
-        IFuzzingRule NOP_RULE = (fuzzer, field, currentValue, setter) -> {};
-
-        static  Object generateValue(Fuzzer fuzzer, Object currentValue, IValueSupplier newValueGenerator) throws IllegalAccessException
-        {
-            return generateValue( fuzzer, currentValue, newValueGenerator, fuzzer.getMaxNewValueGenerationAttempts() );
-        }
+        IFuzzingRule NOP_RULE = (fieldInfo, setter) -> {};
 
         /**
-         * Creates a rule that assigns a value using a given value supplier.
+         * Creates a rule that assigns a value from a supplier.
          *
-         * @param supplier supplies the value for the rule
-         * @return rule
-         */
-        static IFuzzingRule withSupplier(Supplier<?> supplier) {
-            return withSupplier( fuzzer -> supplier.get() );
-        }
-
-        /**
-         * Creates a rule that unconditionally assigns a value without doing any equality checks against the current field value.
          * @param supplier provides the value to assign
-         * @return rule the rule
+         * @return the rule using that supplier
+         * @see #fromSupplier(IValueSupplier)
          */
-        static IFuzzingRule withSupplierNoChecks(Supplier<?> supplier) {
-            return (fuzzer, field, currentValue, setter) -> setter.set( supplier.get() );
+        static IFuzzingRule fromSupplier(Supplier<?> supplier) {
+            return (context, setter) -> setter.set( supplier.get() );
         }
 
         /**
-         * Creates a rule that assigns a value using a given value supplier.
+         * Creates a rule that assigns a value from a {@link IValueSupplier}.
          *
-         * @param supplier supplier
-         * @return rule
+         * @param supplier provides the value to assign
+         * @return the rule using that supplier
+         * @see #fromSupplier(Supplier)
          */
-        static IFuzzingRule withSupplier(IValueSupplier supplier) {
-            return (fuzzer, field, currentValue, setter) -> setter.set( IFuzzingRule.generateValue( fuzzer, currentValue, supplier ) );
+        static IFuzzingRule fromSupplier(IValueSupplier supplier) {
+            return (context, setter) -> setter.set( supplier.getValue(context) );
         }
 
-        static Object generateValue(Fuzzer fuzzer, Object currentValue, IValueSupplier newValueGenerator, int attempts) throws IllegalAccessException
-        {
-            int retries = attempts;
-            while( retries-- > 0 ) {
-                final Object newValue = newValueGenerator.getValue( fuzzer );
-                if ( ! fuzzer.getEqualityRule( currentValue, newValue ).equals( currentValue, newValue ) ) {
-                    return newValue;
-                }
-            }
-            throw new RuntimeException( "Bailing out after failing to come up with a different value for " + currentValue + " for" +
-                " " + attempts + " times." );
-        }
-
-        /**
+        /*
          * Fuzz a given field.
          *
-         * @param fuzzer fuzzer
-         * @param field field to assign new value to
-         * @param currentValue current field value
+         * @param context information about field that should be assigned etc.
          * @param setter setter that should be used to assign the field a new value
          * @throws IllegalAccessException reflection...
          */
-        void fuzz(Fuzzer fuzzer, Field field, Object currentValue, IFieldSetter setter) throws IllegalAccessException;
+        void fuzz(IContext context, IFieldSetter setter) throws IllegalAccessException;
     }
 
     @FunctionalInterface
@@ -187,8 +248,7 @@ public class Fuzzer
         void set(Object value) throws IllegalAccessException;
     }
 
-    public final Random rnd;
-    private int maxNewValueGenerationAttempts = 10;
+    private final RandomGenerator randomGenerator;
 
     private IEqualityRule defaultEqualityRule = Objects::equals;
 
@@ -203,7 +263,9 @@ public class Fuzzer
     // Rules describing how to compare values of a specific type.
     private final Map<Class<?>, IEqualityRule> equalityRules = new HashMap<>();
 
-    private IFieldProvider fieldProvider = (clazz, includingInheritedFields) -> {
+    private final Map<Class<?>, IFieldResolver> fieldResolvers = new HashMap<>();
+
+    private IFieldResolver defaultFieldResolver = (clazz, includingInheritedFields) -> {
         final List<Field> fields = new ArrayList<>();
 
         final Predicate<Field> isSuitableField = (field) -> {
@@ -261,51 +323,92 @@ public class Fuzzer
     }
 
     /**
-     * Creates a new instance with the random seed set
-     * using {@link System#nanoTime()}.
+     * Creates a new instance with a {@link java.util.Random} seeded  using {@link System#nanoTime()}.
+     * @see Fuzzer(long)
      */
     public Fuzzer() {
         this( System.nanoTime() );
     }
 
     /**
-     * Creates a new instance with a given random seed.
-     *
-     * @param seed random seed
+     * Creates a new instance with the random seed set
+     * using {@link System#nanoTime()}.
      */
     public Fuzzer(long seed) {
-        rnd = new Random( seed );
-        setupDefaultRules();
+        this( new Random( seed ) );
     }
 
     /**
-     * Sets the random seed used by this fuzzer.
+     * Creates a new instance with a given random generator.
      *
-     * @param seed random seed
+     * @param random random generator to use
      */
-    public void setSeed(long seed) {
-        rnd.setSeed( seed );
+    public Fuzzer(RandomGenerator random) {
+        Validate.notNull( random, "random must not be null" );
+        this.randomGenerator = random;
     }
 
-    protected void setupDefaultRules() {
+    /**
+     * Clears all field- and type-based fuzzing rules.
+     * @see #clearFieldRules()
+     * @see #clearTypeRules()
+     */
+    public void clearRules() {
+        clearFieldRules();
+        clearTypeRules();
+    }
 
-        addTypeRule( IFuzzingRule.withSupplier( () ->  {
+    /**
+     * Clears all field-based fuzzing rules.
+     * @see #clearTypeRules()
+     * @see #clearRules()
+     */
+    public void clearFieldRules() {
+        this.fieldRules.clear();
+    }
+
+    /**
+     * Clears all type-based fuzzing rules.
+     * @see #clearTypeRules()
+     * @see #clearRules()
+     */
+    public void clearTypeRules() {
+        this.typeRules.clear();
+    }
+
+    /**
+     * Clears all field and type rules and sets up default rules for JDK built-in datatypes.
+     *
+     * @param wrapperGenerator optional function to wrap the default suppliers before registering
+     *                         them. May be <code>null</code> to not perform any wrapping at all.
+     * @see #clearRules()
+     */
+    public void setupDefaultRules(Function<Supplier<?>,IValueSupplier> wrapperGenerator) {
+
+        clearRules();
+
+        if ( wrapperGenerator == null ) {
+            wrapperGenerator = (toWrap) -> (ctx) -> toWrap.get();
+        }
+
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () ->  {
             final byte[] array = new byte[16];
-            rnd.nextBytes( array );
+            randomGenerator.nextBytes( array );
             return new BigInteger( array ).toString( 16 );
-        } ), String.class);
+        } ) ), String.class);
 
-        addTypeRule( IFuzzingRule.withSupplier( () -> rnd.nextLong() ), Long.class, Long.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( () -> rnd.nextInt() ), Integer.class, Integer.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( () -> (short) rnd.nextInt() ), Short.class, Short.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( () -> rnd.nextFloat() ), Float.class, Float.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( () -> rnd.nextDouble() ), Double.class, Double.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( () -> (byte) rnd.nextInt() ), Byte.class, Byte.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( rnd::nextBoolean ), Boolean.class, Boolean.TYPE);
-        addTypeRule( IFuzzingRule.withSupplier( () -> java.time.Instant.ofEpochMilli( rnd.nextLong() ).atZone( ZoneId.systemDefault() ) ), ZonedDateTime.class  );
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextLong ) ), Long.class, Long.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextInt ) ), Integer.class, Integer.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> (short) randomGenerator.nextInt() ) ), Short.class, Short.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextFloat ) ), Float.class, Float.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextDouble ) ), Double.class, Double.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> (byte) randomGenerator.nextInt() ) ), Byte.class, Byte.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextBoolean ) ), Boolean.class, Boolean.TYPE);
+        addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ).atZone( ZoneId.systemDefault() ) ) ), ZonedDateTime.class  );
     }
 
-    private IEqualityRule getEqualityRule(Object a, Object b) {
+    private IEqualityRule getEqualityRule(Object a, Object b)
+    {
         if ( a == null || b == null ) {
             return ALWAYS_FALSE;
         }
@@ -430,7 +533,7 @@ public class Fuzzer
             if ( collection instanceof List<T> list) {
                 while (result.size() < noElementsToPick)
                 {
-                    final int idx = rnd.nextInt( 0, list.size() );
+                    final int idx = randomGenerator.nextInt( 0, list.size() );
                     result.add( list.get( idx ) );
                 }
             }
@@ -441,7 +544,7 @@ public class Fuzzer
                     while (it.hasNext() && result.size() < noElementsToPick)
                     {
                         final T obj = it.next();
-                        if ( rnd.nextBoolean() )
+                        if ( randomGenerator.nextBoolean() )
                         {
                             result.add( obj );
                         }
@@ -455,7 +558,7 @@ public class Fuzzer
         if ( collection instanceof List<T> list) {
             while (result.size() < noElementsToPick)
             {
-                final int idx = rnd.nextInt( 0, list.size() );
+                final int idx = randomGenerator.nextInt( 0, list.size() );
                 if ( ! alreadyPicked.contains( idx ) )
                 {
                     alreadyPicked.add( idx );
@@ -472,7 +575,7 @@ public class Fuzzer
                 while (it.hasNext() && result.size() < noElementsToPick)
                 {
                     final T obj = it.next();
-                    if ( rnd.nextBoolean() && ! alreadyPicked.contains( idx ) )
+                    if ( randomGenerator.nextBoolean() && ! alreadyPicked.contains( idx ) )
                     {
                         alreadyPicked.add( idx );
                         result.add( obj );
@@ -494,7 +597,7 @@ public class Fuzzer
      * @return random map
      */
     public Map<String,String> createRandomStringMap(int minKeyLen, int maxKeyLen, int minValueLen, int maxValueLen) {
-        final int size = rnd.nextInt( 1, 30 );
+        final int size = randomGenerator.nextInt( 1, 30 );
         final Map<String, String> map = new HashMap<>();
         for ( int i = 0 ; i < size ; i++ ) {
             final String key = createRandomString( minKeyLen, maxKeyLen );
@@ -504,8 +607,6 @@ public class Fuzzer
         return map;
     }
 
-    private static final char[] CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
-
     /**
      * Creates a random string with a random length.
      * @param minLen minimum length the string should have (inclusive)
@@ -513,13 +614,24 @@ public class Fuzzer
      * @return random string
      */
     public String createRandomString(int minLen, int maxLen) {
+        return createRandomString( minLen, maxLen, CHARS );
+    }
+    /**
+     * Creates a random string with a random length.
+     * @param minLen minimum length the string should have (inclusive)
+     * @param maxLen maximum length the string should have (inclusive)
+     * @param chars set of characters to create random string from.
+     * @return random string
+     */
+    public String createRandomString(int minLen, int maxLen, char[] chars) {
         Validate.isTrue( minLen >= 0 );
         Validate.isTrue( maxLen >= minLen );
+        Validate.isTrue( chars != null && chars.length > 0 , "need at least one character to choose from");
 
-        final int len = minLen == maxLen ? minLen : minLen + rnd.nextInt( maxLen - minLen -1 );
+        final int len = minLen == maxLen ? minLen : minLen + randomGenerator.nextInt( maxLen - minLen -1 );
         final StringBuilder buffer = new StringBuilder();
         for ( int i = len ; i > 0 ; i-- ) {
-            buffer.append( CHARS[rnd.nextInt( 0, CHARS.length )] );
+            buffer.append( CHARS[randomGenerator.nextInt( 0, CHARS.length )] );
         }
         return buffer.toString();
     }
@@ -537,6 +649,59 @@ public class Fuzzer
         return assignRandomValues( obj, true );
     }
 
+    private IFieldResolver getFieldResolver(Class<?> clazz) {
+        final IFieldResolver result = fieldResolvers.get( clazz );
+        return result != null ? result : defaultFieldResolver;
+    }
+
+    private static final class FieldInfo implements IContext
+    {
+        public final Fuzzer fuzzer;
+        public final Object object;
+        public final RandomGenerator randomGenerator;
+        public Field currentField;
+
+        private FieldInfo(Fuzzer fuzzer, Object object, RandomGenerator randomGenerator)
+        {
+            Validate.notNull( fuzzer, "fuzzer must not be null" );
+            Validate.notNull( object, "object must not be null" );
+            Validate.notNull( randomGenerator, "randomGenerator must not be null" );
+            this.fuzzer = fuzzer;
+            this.object = object;
+            this.randomGenerator = randomGenerator;
+        }
+
+        @Override
+        public IEqualityRule getEqualityRule(Object a, Object b)
+        {
+            return fuzzer.getEqualityRule( a, b );
+        }
+
+        @Override
+        public RandomGenerator getRandomGenerator()
+        {
+            return randomGenerator;
+        }
+
+        @Override
+        public Field getField()
+        {
+            return currentField;
+        }
+
+        @Override
+        public Fuzzer getFuzzer()
+        {
+            return fuzzer;
+        }
+
+        @Override
+        public Object getFieldValue() throws IllegalAccessException
+        {
+            return currentField.get(object);
+        }
+    }
+
     /**
      * Assigns random values to the fields of an object.
      *
@@ -552,10 +717,14 @@ public class Fuzzer
         if ( debug ) {
             System.out.println( "Randomizing object " + obj.getClass().getName() );
         }
-        for ( Field f : fieldProvider.getFields( obj.getClass(), includingInheritedFields ) )
+        final FieldInfo info = new FieldInfo(this , obj, randomGenerator );
+        for ( Field f : getFieldResolver( obj.getClass() ).getFields( obj.getClass(), includingInheritedFields ) )
         {
+            info.currentField = f;
             f.setAccessible( true );
-            assignRandomValue( f, f.get( obj ), v -> f.set(obj, v ) );
+            assignRandomValue( f, info, value -> {
+                f.set( obj, value );
+            } );
         }
         return obj;
     }
@@ -574,54 +743,15 @@ public class Fuzzer
         if ( values.length == 0 ) {
             return Optional.empty();
         }
-        final int idx = rnd.nextInt( 0, values.length );
+        final int idx = randomGenerator.nextInt( 0, values.length );
         return Optional.of( values[idx] );
     }
 
-    /**
-     * Returns how many attempts this fuzzer will make at generating a new field
-     * value before giving up.
-     *
-     * @return max. number of attempts
-     * @see #setMaxNewValueGenerationAttempts(int)
-     */
-    public int getMaxNewValueGenerationAttempts()
-    {
-        return maxNewValueGenerationAttempts;
-    }
-
-    /**
-     * Sets how often to attempt generating a new field value that is different from
-     * the existing field's existing value before failing.
-     *
-     * <p>
-     * This method exists to avoid the fuzzer getting stuck on generator functions
-     * that fail to come up with a different value.
-     * </p>
-     *
-     * @param maxNewValueGenerationAttempts max. number of attempts, must be greater than zero.
-     * @return this instance (for chaining)
-     */
-    public Fuzzer setMaxNewValueGenerationAttempts(int maxNewValueGenerationAttempts)
-    {
-        Validate.isTrue( maxNewValueGenerationAttempts > 0 );
-        this.maxNewValueGenerationAttempts = maxNewValueGenerationAttempts;
-        return this;
-    }
-
-    /**
-     * Fuzz a member field value.
-     *
-     * @param f member field to fuzz value for
-     * @param currentValue the field's current value
-     * @param setter callback used to assign the field value
-     * @throws IllegalAccessException may be thrown by setter callback
-     */
-    public void assignRandomValue(Field f, Object currentValue, Fuzzer.IFieldSetter setter) throws IllegalAccessException {
+    private void assignRandomValue(Field f, IContext fieldInfo, Fuzzer.IFieldSetter setter) throws IllegalAccessException {
         if ( debug ) {
             System.out.println( "Assigning random value to "+f);
         }
-        getRule( f ).fuzz( this, f, currentValue, setter );
+        getRule( f ).fuzz( fieldInfo, setter );
     }
 
     /**
@@ -667,12 +797,24 @@ public class Fuzzer
     }
 
     /**
-     * Sets the implementation that should be used to resolve fields in need of fuzzing
-     * @param fieldProvider
+     * Sets the implementation to be used when resolving fields in need of fuzzing.
+     *
+     * @param fieldResolver resolver
      */
-    public void setFieldProvider(IFieldProvider fieldProvider)
+    public void setDefaultFieldResolver(IFieldResolver fieldResolver)
     {
-        Validate.notNull( fieldProvider, "fieldProvider must not be null" );
-        this.fieldProvider = fieldProvider;
+        Validate.notNull( fieldResolver, "fieldResolver must not be null" );
+        this.defaultFieldResolver = fieldResolver;
+    }
+
+    /**
+     * Sets the implementation to be used when resolving fields in need of fuzzing.
+     *
+     * @param fieldResolver resolver
+     */
+    public void setFieldResolver(IFieldResolver fieldResolver,Class<?> clazz,Class<?>... additional)
+    {
+        Validate.notNull( fieldResolver, "fieldResolver must not be null" );
+        this.defaultFieldResolver = fieldResolver;
     }
 }
