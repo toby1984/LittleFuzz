@@ -1,4 +1,4 @@
-package de.codesourcery.littlefuzz;
+package de.codesourcery.littlefuzz.core;
 
 import java.time.ZonedDateTime;
 import java.util.HashSet;
@@ -14,6 +14,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import de.codesourcery.littlefuzz.DifferentValueGenerator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,22 +91,20 @@ class FuzzerTest
         A,B,C
     }
 
+    private DifferentValueGenerator diffValues;
     private Fuzzer f;
 
-    private static Fuzzer.IFieldValueGenerator differentValues(Supplier<?> s) {
-        return Fuzzer.IFieldValueGenerator.differentValue( ctx -> s.get(), 10 );
+    private IFieldValueGenerator differentValues(Supplier<?> s) {
+        return diffValues.wrap( ctx -> s.get() );
     }
 
-    private static Function<Supplier<?>, Fuzzer.IFieldValueGenerator> differentValues() {
-        return differentValues( 10 );
-    }
-
-    private static Function<Supplier<?>, Fuzzer.IFieldValueGenerator> differentValues(int attempts) {
-        return supplier -> Fuzzer.IFieldValueGenerator.differentValue( ctx -> supplier.get(), attempts );
+    private Function<Supplier<?>, IFieldValueGenerator> differentValues() {
+        return supplier -> diffValues.wrap( ctx -> supplier.get() );
     }
 
     @BeforeEach
     public void setup() {
+        diffValues = new DifferentValueGenerator( 10 );
         f = new Fuzzer( 0xdeadbeefL );
         f.setupDefaultRules( differentValues() );
     }
@@ -324,7 +324,7 @@ class FuzzerTest
     @Test
     public void testCustomRule() throws IllegalAccessException
     {
-        f.setTypeRule( Fuzzer.IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
+        f.setTypeRule( IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
         final Custom obj = f.assignRandomValues( new Custom() );
         assertThat( obj.value ).isEqualTo( 42L );
     }
@@ -332,7 +332,7 @@ class FuzzerTest
     @Test
     public void testAddTypeRuleFailsOnConflict()
     {
-        assertThatThrownBy( () -> f.addTypeRule( Fuzzer.IFuzzingRule.fromSupplier( () -> 42L ), Long.TYPE )
+        assertThatThrownBy( () -> f.addTypeRule( IFuzzingRule.fromSupplier( () -> 42L ), Long.TYPE )
         ).isInstanceOf( IllegalArgumentException.class );
     }
 
@@ -342,7 +342,7 @@ class FuzzerTest
         final Custom obj = new Custom();
         obj.value = 42L;
 
-        f.setTypeRule( Fuzzer.IFuzzingRule.fromSupplier( differentValues( () -> 42L ) ) , Long.TYPE );
+        f.setTypeRule( IFuzzingRule.fromSupplier( differentValues( () -> 42L ) ) , Long.TYPE );
 
         assertThatThrownBy( () -> f.assignRandomValues( obj ) ).isInstanceOf( RuntimeException.class );
     }
@@ -353,7 +353,7 @@ class FuzzerTest
         final Custom obj = new Custom();
         obj.value = 42L;
 
-        f.setTypeRule( Fuzzer.IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
+        f.setTypeRule( IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
         f.assignRandomValues( obj );
     }
 
@@ -365,8 +365,8 @@ class FuzzerTest
     public void testFieldRules() throws IllegalAccessException
     {
         final RuleTest obj = new RuleTest();
-        f.addFieldRule( RuleTest.class, "a", Fuzzer.IFuzzingRule.fromSupplier( () -> 42 ) );
-        f.addFieldRule( RuleTest.class, "b", Fuzzer.IFuzzingRule.fromSupplier( () -> 43 ) );
+        f.addFieldRule( RuleTest.class, "a", IFuzzingRule.fromSupplier( () -> 42 ) );
+        f.addFieldRule( RuleTest.class, "b", IFuzzingRule.fromSupplier( () -> 43 ) );
 
         f.assignRandomValues( obj );
         assertThat( obj.a ).isEqualTo( 42 );
@@ -380,7 +380,7 @@ class FuzzerTest
     @Test
     void testUsesDefaultEqualityRuleIfNoSpecificOneConfigured() throws IllegalAccessException {
 
-        f.addFieldRule( EqualityTest.class, "value", Fuzzer.IFuzzingRule.fromSupplier( Subclass::new ) );
+        f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( Subclass::new ) );
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();
         f.assignRandomValues( obj );
@@ -389,11 +389,11 @@ class FuzzerTest
     @Test
     void testRequiresCustomEqualityRule() {
 
-        f.addFieldRule( EqualityTest.class, "value", Fuzzer.IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) ) ;
+        f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) ) ;
         final BiPredicate<Object,Object> rule = EasyMock.createMock( BiPredicate.class);
         replay( rule );
 
-        f.addEqualityRule( Superclass.class, rule );
+        diffValues.addEqualityRule( Superclass.class, rule );
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();
 
@@ -404,13 +404,13 @@ class FuzzerTest
     @Test
     void testCustomEqualityRule() throws IllegalAccessException {
 
-        f.addFieldRule( EqualityTest.class, "value", Fuzzer.IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) );
+        f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) );
         final BiPredicate<Object,Object> rule = EasyMock.createMock(BiPredicate.class);
         expect( rule.test( anyObject(), anyObject() ) ).andReturn( false );
         replay( rule );
 
-        f.addEqualityRule( Superclass.class, rule );
-        f.addEqualityRule( Subclass.class, rule );
+        diffValues.addEqualityRule( Superclass.class, rule );
+        diffValues.addEqualityRule( Subclass.class, rule );
 
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();

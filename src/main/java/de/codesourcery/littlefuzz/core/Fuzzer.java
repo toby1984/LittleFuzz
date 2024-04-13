@@ -1,4 +1,4 @@
-package de.codesourcery.littlefuzz;
+package de.codesourcery.littlefuzz.core;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -12,11 +12,9 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
-import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -41,8 +39,6 @@ public class Fuzzer
     public static final char[] CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
 
     private static final Pattern THIS_PTR = Pattern.compile( "^this\\$\\d+$" );
-
-    private static final BiPredicate<Object,Object> ALWAYS_FALSE = (a, b) -> false;
 
     private record FieldMatch(Class<?> clazz, String fieldName) {
         public FieldMatch
@@ -115,90 +111,6 @@ public class Fuzzer
     };
 
     /**
-     * Returns all {@link Field member fields} for a given class.
-     *
-     * @author tobias.gierke@code-sourcery.de
-     */
-    public interface IFieldResolver
-    {
-        /**
-         * Returns the fields to fuzz for a given class.
-         *
-         * @param clazz the class to get fields for, never
-         * @param includeInherited whether to also return fields from super-classes
-         * @return list of fields that should be assigned random values
-         */
-        List<Field> getFields(Class<?> clazz, boolean includeInherited);
-    }
-
-    /**
-     * Locates the rule to use for a given field.
-     *
-     * @author tobias.gierke@code-sourcery.de
-     */
-    @FunctionalInterface
-    public interface IRuleResolver
-    {
-        /**
-         * Resolve the fuzzing rule for the {@link IContext#getField() current field}.
-         *
-         * <p>
-         * This method should throw an exception if no suitable fuzzing rule could be located.
-         * </p>
-         *
-         * @param context context
-         * @return fuzzing rule to use, never <code>null</code>
-         */
-        IFuzzingRule getRule(IContext context);
-    }
-
-    /**
-     * Provides a new value for a given field.
-     *
-     * @author tobias.gierke@code-sourcery.de
-     */
-    @FunctionalInterface
-    public interface IFieldValueGenerator
-    {
-        /**
-         * Generate a new field value.
-         *
-         * @param context context information
-         * @return new field value to assign
-         * @throws IllegalAccessException may be thrown if implementation tries to access the current field and fails.
-         */
-        Object getValue(IContext context) throws IllegalAccessException;
-
-        /**
-         * Wraps an {@link IFieldValueGenerator} so that it never returns the value the current field already has.
-         * <p>
-         * This method relies on the {@link Fuzzer#addEqualityRule(Class, BiPredicate)}  equality rules} configured on the current fuzzer.
-         * </p>
-         *
-         * @param delegate <code>IFieldValueGenerator</code> to wrap
-         * @param attempts how often to attempt generating a different value before giving up and throwing a <code>RuntimeException</code>.
-         * @return wrapped value supplier
-         * @see Fuzzer#setEqualityRule(BiPredicate)
-         * @see Fuzzer#addEqualityRule(Class, BiPredicate)
-         * @see IContext#getEqualityRule(Object, Object)
-         */
-        static IFieldValueGenerator differentValue(IFieldValueGenerator delegate, int attempts) {
-            return context -> {
-                final Object currentValue = context.getFieldValue();
-                int retries = attempts;
-                while( retries-- > 0 ) {
-                    final Object newValue = delegate.getValue( context );
-                    if ( ! context.getEqualityRule( currentValue, newValue ).test( currentValue, newValue ) ) {
-                        return newValue;
-                    }
-                }
-                throw new RuntimeException( "Bailing out after failing to come up with a different value for " + currentValue + " for" +
-                    " " + attempts + " times." );
-            };
-        }
-    }
-
-    /**
      * Provides access to information about the member field that
      * is currently being fuzzed.
      *
@@ -206,19 +118,6 @@ public class Fuzzer
      */
     public interface IContext
     {
-        /**
-         * Returns the equality rule to use for comparing two given values.
-         *
-         * @param a value A
-         * @param b value B
-         * @return the rule to use
-         * @throws RuntimeException when one object is a subclass of the other and no
-         *                          suitable equality rule has been {@link #addEqualityRule(Class, BiPredicate<Object,Object>) registered}.
-         * @see #addEqualityRule(Class, BiPredicate)
-         * @see #setEqualityRule(BiPredicate)
-         */
-        BiPredicate<Object,Object> getEqualityRule(Object a, Object b);
-
         /**
          * Returns the random generator to use.
          * @return random generator
@@ -248,62 +147,49 @@ public class Fuzzer
         Object getFieldValue() throws IllegalAccessException;
     }
 
-    /**
-     * Generates a new value for given field and applies it (if desired/applicable
-     *
-     * @author tobias.gierke@code-sourcery.de
-     */
-    @FunctionalInterface
-    public interface IFuzzingRule {
+    private static final class FieldInfo implements IContext
+    {
+        public final Fuzzer fuzzer;
+        public final Object object;
+        public final RandomGenerator randomGenerator;
+        public Field currentField;
 
-        /**
-         * A no-op rule that does nothing.
-         */
-        IFuzzingRule NOP_RULE = (fieldInfo, setter) -> {};
-
-        /**
-         * Creates a rule that assigns a value from a supplier.
-         *
-         * @param supplier provides the value to assign
-         * @return the rule using that supplier
-         * @see #fromSupplier(IFieldValueGenerator)
-         */
-        static IFuzzingRule fromSupplier(Supplier<?> supplier) {
-            return (context, setter) -> setter.set( supplier.get() );
+        private FieldInfo(Fuzzer fuzzer, Object object, RandomGenerator randomGenerator)
+        {
+            Validate.notNull( fuzzer, "fuzzer must not be null" );
+            Validate.notNull( object, "object must not be null" );
+            Validate.notNull( randomGenerator, "randomGenerator must not be null" );
+            this.fuzzer = fuzzer;
+            this.object = object;
+            this.randomGenerator = randomGenerator;
         }
 
-        /**
-         * Creates a rule that assigns a value from a {@link IFieldValueGenerator}.
-         *
-         * @param supplier provides the value to assign
-         * @return the rule using that supplier
-         * @see #fromSupplier(Supplier)
-         */
-        static IFuzzingRule fromSupplier(IFieldValueGenerator supplier) {
-            return (context, setter) -> setter.set( supplier.getValue(context) );
+        @Override
+        public RandomGenerator getRandomGenerator()
+        {
+            return randomGenerator;
         }
 
-        /**
-         * Fuzz a given field.
-         *
-         * @param context information about field that should be assigned etc.
-         * @param setter setter that should be used to assign the field a new value
-         * @throws IllegalAccessException reflection...
-         */
-        void fuzz(IContext context, IFieldSetter setter) throws IllegalAccessException;
-    }
+        @Override
+        public Field getField()
+        {
+            return currentField;
+        }
 
-    @FunctionalInterface
-    public interface IFieldSetter {
-        void set(Object value) throws IllegalAccessException;
+        @Override
+        public Fuzzer getFuzzer()
+        {
+            return fuzzer;
+        }
+
+        @Override
+        public Object getFieldValue() throws IllegalAccessException
+        {
+            return currentField.get(object);
+        }
     }
 
     private final RandomGenerator randomGenerator;
-
-    // Rules describing how to compare values of a specific type.
-    private final Map<Class<?>, BiPredicate<Object,Object>> equalityRules = new HashMap<>();
-
-    private BiPredicate<Object,Object> equalityRule = Objects::equals;
 
     // rules how to generate values of a given type.
     // the type is the map key while the generation rule is the value
@@ -400,45 +286,6 @@ public class Fuzzer
         addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextBoolean ) ), Boolean.class, Boolean.TYPE);
         addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ) ) ), java.time.Instant.class );
         addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ).atZone( ZoneId.systemDefault() ) ) ), ZonedDateTime.class  );
-    }
-
-    private BiPredicate<Object,Object> getEqualityRule(Object a, Object b)
-    {
-        if ( a == null || b == null ) {
-            return ALWAYS_FALSE;
-        }
-        if ( a.getClass() == b.getClass() ) {
-            final BiPredicate<Object,Object> ruleA = equalityRules.get( a.getClass() );
-            return ruleA == null ? equalityRule : ruleA;
-        }
-        final BiPredicate<Object,Object> ruleA = equalityRules.get( a.getClass() );
-        final BiPredicate<Object,Object> ruleB = equalityRules.get( b.getClass() );
-        if ( ruleA == ruleB ) {
-            return ruleA == null ? equalityRule : ruleA;
-        }
-        if ( a.getClass().isAssignableFrom( b.getClass() ) ||
-            b.getClass().isAssignableFrom( (a.getClass()) ) )
-        {
-            // one is a subclass of the other
-            throw new RuntimeException( "Attempting equality check between objects of classes " +
-                " " + a.getClass().getName() + " and " + b.getClass().getName() + " where one class is " +
-                "a subclass of the other - you need to explicitly an equality set (SAME INSTANCE FOR BOTH) for both classes" );
-        }
-        return ALWAYS_FALSE;
-    }
-
-    /**
-     * Adds a custom rule for performing equality comparison on a given type.
-     *
-     * @param clazz type this equality rule should be used for
-     * @param rule the rule
-     */
-    public void addEqualityRule(Class<?> clazz, BiPredicate<Object,Object> rule) {
-        Validate.notNull( clazz, "clazz must not be null" );
-        Validate.notNull( rule, "rule must not be null" );
-        Validate.isTrue( !equalityRules.containsKey( clazz ), "There already is an equality rule configured for class " + clazz + ": "+
-            equalityRules.get( clazz ) );
-        equalityRules.put( clazz, rule );
     }
 
     /**
@@ -644,54 +491,6 @@ public class Fuzzer
         return assignRandomValues( obj, true );
     }
 
-    private static final class FieldInfo implements IContext
-    {
-        public final Fuzzer fuzzer;
-        public final Object object;
-        public final RandomGenerator randomGenerator;
-        public Field currentField;
-
-        private FieldInfo(Fuzzer fuzzer, Object object, RandomGenerator randomGenerator)
-        {
-            Validate.notNull( fuzzer, "fuzzer must not be null" );
-            Validate.notNull( object, "object must not be null" );
-            Validate.notNull( randomGenerator, "randomGenerator must not be null" );
-            this.fuzzer = fuzzer;
-            this.object = object;
-            this.randomGenerator = randomGenerator;
-        }
-
-        @Override
-        public BiPredicate<Object,Object> getEqualityRule(Object a, Object b)
-        {
-            return fuzzer.getEqualityRule( a, b );
-        }
-
-        @Override
-        public RandomGenerator getRandomGenerator()
-        {
-            return randomGenerator;
-        }
-
-        @Override
-        public Field getField()
-        {
-            return currentField;
-        }
-
-        @Override
-        public Fuzzer getFuzzer()
-        {
-            return fuzzer;
-        }
-
-        @Override
-        public Object getFieldValue() throws IllegalAccessException
-        {
-            return currentField.get(object);
-        }
-    }
-
     /**
      * Assigns random values to the fields of an object.
      *
@@ -764,20 +563,6 @@ public class Fuzzer
     public Fuzzer setDebug(boolean debug)
     {
         this.debug = debug;
-        return this;
-    }
-
-    /**
-     * Sets the {@link BiPredicate<Object,Object> equality rule} to use when comparing a newly generated field value
-     * against the field's current value.
-     *
-     * @param equalityRule rule to use
-     * @return this instance (for chaining)
-     */
-    public Fuzzer setEqualityRule(BiPredicate<Object,Object> equalityRule)
-    {
-        Validate.notNull( equalityRule, "equalityRule must not be null" );
-        this.equalityRule = equalityRule;
         return this;
     }
 

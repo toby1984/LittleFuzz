@@ -21,7 +21,7 @@ Assuming you're using Maven, just add this to your pom.xml
       <version>1.0.0</version>
     </dependency>
 
-First you'll have to create an instance of the `de.codesourcery.littlefuzz.Fuzzer`:
+First you'll have to create an instance of the `de.codesourcery.littlefuzz.core.Fuzzer`:
 
     Fuzzer fuzzer = new Fuzzer();
 
@@ -35,7 +35,7 @@ be enabled like so:
     // Equality comparisons will performed using the 
     fuzzer.setupDefaultRules(true); 
 
-You can register custom fuzzing rules (`de.codesourcery.littlefuzz.Fuzzer.IFuzzingRule`) based on a field's 
+You can register custom fuzzing rules (`de.codesourcery.littlefuzz.core.Fuzzer.IFuzzingRule`) based on a field's 
 declaring class and name or based on the field's type using the `addFieldRule()` , `setFieldRule()`, 
 `addTypeRule()` and `setTypeRule()` methods.
 
