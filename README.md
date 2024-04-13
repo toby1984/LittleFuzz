@@ -11,6 +11,8 @@ You need to be running at least JDK 17
 
 JDK 17, Maven 3.9.6 or later
 
+To publish to Maven Central, use `mvn -Prelease release:prepare release:perform`.
+
 ### Usage
 
 Assuming you're using Maven, just add this to your pom.xml
