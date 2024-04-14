@@ -1,3 +1,6 @@
+
+![Build Status](https://github.com/toby1984/LittleFuzz/actions/workflows/maven.yml/badge.svg)
+
 ## LittleFuzz
 
 A tiny reflection-based fuzzer written in Java, perfect for unit-testing. Its purpose is to assign random 
