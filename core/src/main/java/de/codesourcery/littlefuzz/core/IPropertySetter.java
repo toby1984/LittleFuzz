@@ -16,18 +16,17 @@
 package de.codesourcery.littlefuzz.core;
 
 /**
- * Provides a new value for a given field.
+ * Responsible for assigning a value to the {@link Fuzzer.IContext#getProperty() current property}.
  *
- * @author tobias.gierke@code-sourcery.de
+ * @author tobias.gierke@voipfuture.com
  */
 @FunctionalInterface
-public interface IFieldValueGenerator
+public interface IPropertySetter
 {
     /**
-     * Generate a new field value.
+     * Assign value to {@link Fuzzer.IContext#getProperty() current property}.
      *
-     * @param context context information
-     * @return new field value to assign
+     * @param value value to assign
      */
-    Object getValue(Fuzzer.IContext context);
+    void set(Object value);
 }

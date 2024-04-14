@@ -15,48 +15,47 @@
  */
 package de.codesourcery.littlefuzz.core;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.Validate;
 
 /**
- * Wraps another {@link IFieldResolver} to add caching of resolved fields.
+ * Wraps another {@link IPropertyResolver} to add caching of resolved properties.
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public class CachingFieldResolver implements IFieldResolver
+public class CachingPropertyResolver implements IPropertyResolver
 {
-    private final IFieldResolver delegate;
+    private final IPropertyResolver delegate;
 
     private record CacheKey(Class<?> clazz, boolean includeInherited) { }
 
-    private final Map<CacheKey,List<Field>> cache = new HashMap<>();
+    private final Map<CacheKey,List<IProperty>> cache = new HashMap<>();
 
-    public CachingFieldResolver(IFieldResolver delegate)
+    public CachingPropertyResolver(IPropertyResolver delegate)
     {
         Validate.notNull( delegate, "delegate must not be null" );
         this.delegate = delegate;
     }
 
     /**
-     * Wraps another {@link IFieldResolver} to add caching of resolved fields.
+     * Wraps another {@link IPropertyResolver} to add caching of resolved properties.
      *
      * @param resolver resolver to wrap
      * @return caching instance.
      */
-    public static CachingFieldResolver wrap(IFieldResolver resolver) {
-        return new CachingFieldResolver( resolver );
+    public static CachingPropertyResolver wrap(IPropertyResolver resolver) {
+        return new CachingPropertyResolver( resolver );
     }
 
     @Override
-    public List<Field> getFields(Class<?> clazz, boolean includeInherited)
+    public List<IProperty> getProperties(Class<?> clazz, boolean includeInherited)
     {
         final CacheKey key = new CacheKey( clazz, includeInherited );
-        List<Field> result = cache.get( key );
+        List<IProperty> result = cache.get( key );
         if ( result == null ) {
-            result = delegate.getFields( clazz, includeInherited );
+            result = delegate.getProperties( clazz , includeInherited);
             cache.put( key, result );
         }
         return result;
@@ -70,11 +69,11 @@ public class CachingFieldResolver implements IFieldResolver
     }
 
     /**
-     * Returns the field resolver that's wrapped by this instance.
+     * Returns the property resolver that's wrapped by this instance.
      *
      * @return delegate, never <code>null</code>
      */
-    public IFieldResolver getDelegate()
+    public IPropertyResolver getDelegate()
     {
         return delegate;
     }

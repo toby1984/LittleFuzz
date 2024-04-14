@@ -20,7 +20,7 @@ import org.easymock.EasyMock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class CachingFieldResolverTest
+class CachingPropertyResolverTest
 {
     private Fuzzer f;
 
@@ -38,10 +38,10 @@ class CachingFieldResolverTest
     @Test
     void testResolutionIsNotCached()
     {
-        final IFieldResolver r = EasyMock.createMock( IFieldResolver.class );
-        EasyMock.expect( r.getFields( TestClass.class, true ) ).andReturn( List.of() ).times( 2 );
+        final IPropertyResolver r = EasyMock.createMock( IPropertyResolver.class );
+        EasyMock.expect( r.getProperties( TestClass.class, true ) ).andReturn( List.of() ).times( 2 );
         EasyMock.replay( r );
-        f.setFieldResolver( r );
+        f.setPropertyResolver( r );
         f.fuzz( new TestClass() );
         f.fuzz( new TestClass() );
         EasyMock.verify( r );
@@ -50,10 +50,10 @@ class CachingFieldResolverTest
     @Test
     void testResolutionIsCached()
     {
-        final IFieldResolver r = EasyMock.createMock( IFieldResolver.class );
-        EasyMock.expect( r.getFields( TestClass.class, true ) ).andReturn( List.of() );
+        final IPropertyResolver r = EasyMock.createMock( IPropertyResolver.class );
+        EasyMock.expect( r.getProperties( TestClass.class, true ) ).andReturn( List.of() );
         EasyMock.replay( r );
-        f.setFieldResolver( CachingFieldResolver.wrap(r) );
+        f.setPropertyResolver( CachingPropertyResolver.wrap(r) );
         f.fuzz( new TestClass() );
         f.fuzz( new TestClass() );
         EasyMock.verify( r );

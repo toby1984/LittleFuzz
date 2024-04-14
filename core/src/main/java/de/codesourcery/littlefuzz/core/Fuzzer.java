@@ -15,116 +15,71 @@
  */
 package de.codesourcery.littlefuzz.core;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import org.apache.commons.lang3.Validate;
 
 /**
- * Test helper class to assign random values ('fuzz') to instance fields.
+ * Test helper class to assign random values ('fuzz') to object properties.
  *
- * <p>
- * This fuzzer comes with some default rules for common Java field types like primitives
- * as well as some rules for
- * </p>
+ * <p>By default, this class is initialized with a {@link FieldResolver} so will
+ * only inject values into member fields.</p>
+ *
  * @author tobias.gierke@code-sourcery.de
  */
 public class Fuzzer
 {
     private boolean debug;
 
-    private static final Pattern THIS_PTR = Pattern.compile( "^this\\$\\d+$" );
-
-    private record FieldMatch(Class<?> clazz, String fieldName) {
-        public FieldMatch
+    private record PropertyMatch(Class<?> clazz, String propertyName) {
+        public PropertyMatch
         {
             Validate.notNull( clazz, "clazz must not be null" );
-            Validate.notBlank( fieldName, "fieldName must not be null or blank");
-            if ( Arrays.stream( clazz.getDeclaredFields() ).filter( x -> ! Modifier.isStatic(x.getModifiers()))
-                .noneMatch( field -> field.getName().equals( fieldName ) ) ) {
-                throw new IllegalArgumentException( "Class '" + clazz.getName() + "' has no non-static field '" + fieldName + "'" );
-            }
+            Validate.notBlank( propertyName, "propertyName must not be null or blank");
+        }
+
+        public boolean matches(IProperty property) {
+            return property.getDeclaringClass() == clazz && property.getName().equals( propertyName );
         }
     }
 
     /**
-     * Default rule resolver that relies on {@link #addTypeRule(IFuzzingRule, Class) field type rules} and
-     * {@link #addFieldRule(Class, String, IFuzzingRule) declaring class as well as field name}.
+     * Default rule resolver that relies on {@link #addTypeRule(IFuzzingRule, Class) property type rules} and
+     * {@link #addPropertyRule(Class, String, IFuzzingRule) declaring class as well as property name}.
      */
     public static final IRuleResolver DEFAULT_RULE_RESOLVER = (ctx) -> {
         final Fuzzer fuzzer = ctx.getFuzzer();
-        final Field field = ctx.getField();
-        IFuzzingRule result = fuzzer.fieldRules.get( new FieldMatch( field.getDeclaringClass(), field.getName() ) );
+        final IProperty property = ctx.getProperty();
+        IFuzzingRule result = fuzzer.propertyRules.get( new PropertyMatch( property.getDeclaringClass(), property.getName() ) );
         if ( result == null ) {
-            result = fuzzer.typeRules.get( field.getType() );
+            result = fuzzer.typeRules.get( property.getType() );
             if ( result == null )
             {
-                throw new RuntimeException( "Error, found no fuzzing rule for " + field );
+                throw new RuntimeException( "Error, found no fuzzing rule for " + property );
             }
         }
         return result;
     };
 
     /**
-     * Default field resolver that will return all non-static member fields except
-     * for "this" pointers to the outer class.
+     * Default resolver to use, currently a {@link FieldResolver}.
      */
-    public static final IFieldResolver DEFAULT_FIELD_RESOLVER = (clazz, includingInheritedFields) -> {
-        final List<Field> fields = new ArrayList<>();
-
-        final Predicate<Field> isSuitableField = (field) -> {
-            if ( ! Modifier.isStatic( field.getModifiers() ) ) {
-                // ignore pointer to enclosing class
-                return ! THIS_PTR.matcher( field.getName() ).matches();
-            }
-            return false;
-        };
-
-        if ( includingInheritedFields )
-        {
-            Class<?> current = clazz;
-            while (current != Object.class)
-            {
-                for ( final Field f : current.getDeclaredFields() )
-                {
-                    if ( isSuitableField.test( f ) )
-                    {
-                        fields.add( f );
-                    }
-                }
-                current = current.getSuperclass();
-            }
-        } else {
-            for ( final Field field : clazz.getDeclaredFields() )
-            {
-                if ( isSuitableField.test(field) ) {
-                    fields.add( field );
-                }
-            }
-        }
-        return fields;
-    };
+    public static final IPropertyResolver DEFAULT_RESOLVER = CachingPropertyResolver.wrap( new FieldResolver() );
 
     /**
-     * Provides access to information about the member field that
-     * is currently being fuzzed.
+     * Provides access to information about the property that is currently being fuzzed.
      *
      * @author tobias.gierke@code-sourcery.
      */
     public interface IContext
     {
         /**
-         * Returns the field that is currently being fuzzed.
+         * Returns the property that is currently being fuzzed.
          *
-         * @return field
+         * @return property
          */
-        Field getField();
+        IProperty getProperty();
 
         /**
          * Returns the fuzzer instance.
@@ -134,31 +89,32 @@ public class Fuzzer
         Fuzzer getFuzzer();
 
         /**
-         * Returns the value of the current field
-         * @return field value, may be <code>null</code>
-         * @see #getField()
+         * Returns the value of the current property.
+         *
+         * @return property value, may be <code>null</code>
+         * @see #getProperty()
          */
-        Object getFieldValue();
+        Object getPropertyValue();
     }
 
-    private static final class FieldInfo implements IContext
+    private static final class Context implements IContext
     {
         public final Fuzzer fuzzer;
-        public final Object object;
-        public Field currentField;
+        public final Object target;
+        public IProperty currentProperty;
 
-        private FieldInfo(Fuzzer fuzzer, Object object)
+        private Context(Fuzzer fuzzer, Object target)
         {
             Validate.notNull( fuzzer, "fuzzer must not be null" );
-            Validate.notNull( object, "object must not be null" );
+            Validate.notNull( target, "target object must not be null" );
             this.fuzzer = fuzzer;
-            this.object = object;
+            this.target = target;
         }
 
         @Override
-        public Field getField()
+        public IProperty getProperty()
         {
-            return currentField;
+            return currentProperty;
         }
 
         @Override
@@ -168,28 +124,21 @@ public class Fuzzer
         }
 
         @Override
-        public Object getFieldValue()
+        public Object getPropertyValue()
         {
-            try
-            {
-                return currentField.get(object);
-            }
-            catch( IllegalAccessException e )
-            {
-                throw new RuntimeException( e );
-            }
+            return currentProperty.getValue( target );
         }
+
     }
 
     // rules how to generate values of a given type.
     // the type is the map key while the generation rule is the value
     private final Map<Class<?>, IFuzzingRule> typeRules = new HashMap<>();
 
-    // rules how to generate values for a field of a specific class
-    // the type is the FieldMatch key while the generation rule is the value
-    private final Map<FieldMatch, IFuzzingRule> fieldRules = new HashMap<>();
+    // rules how to generate values for a property of a specific class
+    private final Map<PropertyMatch, IFuzzingRule> propertyRules = new HashMap<>();
 
-    private IFieldResolver fieldResolver = DEFAULT_FIELD_RESOLVER;
+    private IPropertyResolver propertyResolver = DEFAULT_RESOLVER;
 
     private IRuleResolver ruleResolver = DEFAULT_RULE_RESOLVER;
 
@@ -201,27 +150,27 @@ public class Fuzzer
     }
 
     /**
-     * Clears all field- and type-based fuzzing rules.
+     * Clears all property- and type-based fuzzing rules.
      *
      * @return this instance (for chaining)
-     * @see #clearFieldRules()
+     * @see #clearPropertyRules()
      * @see #clearTypeRules()
      */
     public Fuzzer clearRules() {
-        clearFieldRules();
+        clearPropertyRules();
         clearTypeRules();
         return this;
     }
 
     /**
-     * Clears all field-based fuzzing rules.
+     * Clears all property-based fuzzing rules.
      *
      * @return this instance (for chaining)
      * @see #clearTypeRules()
      * @see #clearRules()
      */
-    public Fuzzer clearFieldRules() {
-        this.fieldRules.clear();
+    public Fuzzer clearPropertyRules() {
+        this.propertyRules.clear();
         return this;
     }
 
@@ -278,21 +227,53 @@ public class Fuzzer
     }
 
     /**
-     * Adds a rule how to generate for a specific member field of a given class.
+     * Adds a rule how to generate for a specific property of a given class.
      *
-     * @param owningClass class declaring the member field that should be randomized
-     * @param fieldName name of the member field
-     * @param rule rule used to generate new values for the given member field
+     * @param owningClass class declaring the property
+     * @param propertyName name of the property to assign
+     * @param rule rule used to generate new values
      * @return this instance (for chaining)
+     * 
+     * @throws IllegalArgumentException if the owning class does not have a property by that name or 
+     *                                  if another rule was already registered for this class and property name.
+     *                                  
+     * @see #setPropertyRule(Class, String, IFuzzingRule) 
      */
-    public Fuzzer addFieldRule(Class<?> owningClass, String fieldName, IFuzzingRule rule) {
+    public Fuzzer addPropertyRule(Class<?> owningClass, String propertyName, IFuzzingRule rule) {
         Validate.notNull( rule, "rule must not be null" );
-        final FieldMatch key = new FieldMatch( owningClass, fieldName );
-        Validate.isTrue( !fieldRules.containsKey( key ), "There is already a rule registered for " + key + ": " + fieldRules.get( key ) );
-        fieldRules.put( key, rule );
-        return this;
+        final PropertyMatch key = new PropertyMatch( owningClass, propertyName );
+        Validate.isTrue( !propertyRules.containsKey( key ), "There is already a rule registered for " + key + ": " + propertyRules.get( key ) );
+        return setPropertyRule( owningClass, propertyName, rule );
     }
 
+    /**
+     * Assigns a rule how to generate for a specific property of a given class.
+     * 
+     * <p>Unlike {@link #addPropertyRule(Class, String, IFuzzingRule)} , this method
+     * will not fail if another rule has already been configured for the property.</p>
+     *
+     * @param owningClass class declaring the property
+     * @param propertyName name of the property to assign
+     * @param rule rule used to generate new values
+     * @return this instance (for chaining)
+     *
+     * @throws IllegalArgumentException if the owning class does not have a property by that name or 
+     *                                  if another rule was already registered for this class and property name.      
+     * @see #addPropertyRule(Class, String, IFuzzingRule) 
+     */
+    public Fuzzer setPropertyRule(Class<?> owningClass, String propertyName, IFuzzingRule rule) {
+        Validate.notNull( rule, "rule must not be null" );
+        final PropertyMatch key = new PropertyMatch( owningClass, propertyName );
+
+        if ( propertyResolver.getProperties( owningClass, false ).stream().noneMatch( key::matches ) &&
+            propertyResolver.getProperties( owningClass, true  ).stream().noneMatch( key::matches ) ) {
+            throw new IllegalArgumentException("Property resolver did not return any property named '"+propertyName+"'" +
+                " in class '"+owningClass.getName()+"'");
+        }
+        propertyRules.put( key, rule );
+        return this;
+    }    
+    
     /**
      * Adds a rule how to generate new values with a given type.
      *
@@ -314,15 +295,15 @@ public class Fuzzer
     /**
      * Apply fuzzing rules to an object.
      *
-     * <p><b>This method will tell the current {@link IFieldResolver} to also consider
-     * inherited fields.</b>Use {@link #fuzz(Object, boolean)} if you need control over this.</p>
+     * <p><b>This method will tell the current {@link IPropertyResolver} to also consider
+     * inherited properties.</b>Use {@link #fuzz(Object, boolean)} if you need control over this.</p>
      *
-     * <p>This method will locate all applicable fields using the current
-     * {@link IFieldResolver}</p>, use the current {@link IRuleResolver} to figure
-     * out which {@link IFuzzingRule} to apply and then assign field values according
+     * <p>This method will locate suitable properties using the current
+     * {@link IPropertyResolver}</p>, use the current {@link IRuleResolver} to figure
+     * out which {@link IFuzzingRule} to apply and then assign values according
      * to these rules.</p>
      *
-     * @param obj object whose fields should have new values assigned
+     * @param obj object whose properties should have new values assigned
      * @return object instance (for chaining)
      * @param <T> evidence to avoid cast warnings
      *
@@ -336,42 +317,32 @@ public class Fuzzer
     /**
      * Apply fuzzing rules to object.
      *
-     * <p>This method will locate all applicable fields using the current
-     * {@link IFieldResolver}</p>, use the current {@link IRuleResolver} to figure
-     * out which {@link IFuzzingRule} to apply and then assign field values according
+     * <p>This method will locate suitable properties using the current
+     * {@link IPropertyResolver}</p>, use the current {@link IRuleResolver} to figure
+     * out which {@link IFuzzingRule} to apply and then assign values according
      * to these rules.</p>
      *
-     * @param obj object whose fields should have new values assigned
-     * @param includingInheritedFields whether to also assign fields inherited from any superclass
+     * @param obj object whose properties should have new values assigned
+     * @param includingInheritedProperties whether to also assign properties inherited from super classes
      * @return object instance (for chaining)
      * @param <T> evidence to avoid cast warnings
      *
      * @see #fuzz(Object)
      */
-    public <T> T fuzz(T obj, boolean includingInheritedFields)
+    public <T> T fuzz(T obj, boolean includingInheritedProperties)
     {
         Validate.notNull( obj, "obj must not be null" );
         if ( debug ) {
             System.out.println( "Randomizing object " + obj.getClass().getName() );
         }
-        final FieldInfo info = new FieldInfo(this , obj );
-        for ( Field field : fieldResolver.getFields( obj.getClass(), includingInheritedFields ) )
+        final Context info = new Context(this , obj );
+        for ( IProperty property : propertyResolver.getProperties( obj.getClass(), includingInheritedProperties ) )
         {
             if ( debug ) {
-                System.out.println( "Assigning random value to "+field);
+                System.out.println( "Assigning random value to "+property);
             }
-            info.currentField = field;
-            field.setAccessible( true );
-            getRule( info ).fuzz( info, value -> {
-                try
-                {
-                    field.set( obj, value );
-                }
-                catch( IllegalAccessException e )
-                {
-                    throw new RuntimeException( e );
-                }
-            } );
+            info.currentProperty = property;
+            getRule( info ).fuzz( info, value -> property.setValue( obj, value  ) );
         }
         return obj;
     }
@@ -406,29 +377,29 @@ public class Fuzzer
     }
 
     /**
-     * Sets the implementation to be used when resolving fields in need of fuzzing.
+     * Sets the implementation to be used when resolving properties in need of fuzzing.
      *
-     * @param fieldResolver resolver
+     * @param propertyResolver resolver
      * @return this instance (for chaining)
-     * @see #DEFAULT_FIELD_RESOLVER
-     * @see #getFieldResolver()
-     * @see CachingFieldResolver
+     * @see #DEFAULT_RESOLVER
+     * @see #getPropertyResolver()
+     * @see CachingPropertyResolver
      */
-    public Fuzzer setFieldResolver(IFieldResolver fieldResolver)
+    public Fuzzer setPropertyResolver(IPropertyResolver propertyResolver)
     {
-        Validate.notNull( fieldResolver, "fieldResolver must not be null" );
-        this.fieldResolver = fieldResolver;
+        Validate.notNull( propertyResolver, "propertyResolver must not be null" );
+        this.propertyResolver = propertyResolver;
         return this;
     }
 
     /**
-     * Returns the current field resolver.
+     * Returns the current {@link IPropertyResolver property resolver}.
      *
-     * @return field resolver, never <code>null</code>
-     * @see #setFieldResolver(IFieldResolver)
+     * @return property resolver, never <code>null</code>
+     * @see #setPropertyResolver(IPropertyResolver)
      */
-    public IFieldResolver getFieldResolver()
+    public IPropertyResolver getPropertyResolver()
     {
-        return fieldResolver;
+        return propertyResolver;
     }
 }

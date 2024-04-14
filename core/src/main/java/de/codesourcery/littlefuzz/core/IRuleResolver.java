@@ -16,7 +16,7 @@
 package de.codesourcery.littlefuzz.core;
 
 /**
- * Locates the rule to use for a given field.
+ * Locates the rule to use for a given property.
  *
  * @author tobias.gierke@code-sourcery.de
  */
@@ -24,7 +24,7 @@ package de.codesourcery.littlefuzz.core;
 public interface IRuleResolver
 {
     /**
-     * Resolve the fuzzing rule for the {@link Fuzzer.IContext#getField() current field}.
+     * Resolve the fuzzing rule for the {@link Fuzzer.IContext#getProperty() current property}.
      *
      * <p>
      * This method should throw an exception if no suitable fuzzing rule could be located.

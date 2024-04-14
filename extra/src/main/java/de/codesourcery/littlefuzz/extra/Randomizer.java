@@ -31,11 +31,11 @@ import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
 import org.apache.commons.lang3.Validate;
 import de.codesourcery.littlefuzz.core.Fuzzer;
-import de.codesourcery.littlefuzz.core.IFieldValueGenerator;
+import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 import de.codesourcery.littlefuzz.core.IFuzzingRule;
 
 /**
- * Helper functions to generate randomized field values using a {@link RandomGenerator}.
+ * Helper functions to generate randomized property values using a {@link RandomGenerator}.
  *
  * @author tobias.gierke@code-sourcery.de
  */
@@ -196,7 +196,7 @@ public class Randomizer
     }
 
     /**
-     * Clears all field and type rules and sets up default rules for JDK built-in datatypes.
+     * Clears all property and type rules and sets up default rules for JDK built-in datatypes.
      *
      * <p>
      * Rules that use this classes {@link RandomGenerator} get registered for byte/short/int/long/float/double/boolean
@@ -211,11 +211,11 @@ public class Randomizer
      * using random characters out the {@link #DEFAULT_CHARS} array, again relying on this classes {@link RandomGenerator}.
      * </p>
      *
-     * @param wrapperGenerator optional function to wrap the default field value generators before registering
+     * @param wrapperGenerator optional function to wrap the default property value generators before registering
      *                         them. May be <code>null</code> to not perform any wrapping at all.
-     * @see DifferentValueGenerator#wrap(IFieldValueGenerator)
+     * @see DifferentValueGenerator#wrap(IPropertyValueGenerator)
      */
-    public void setupDefaultRules(Fuzzer fuzzer, Function<Supplier<?>, IFieldValueGenerator> wrapperGenerator) {
+    public void setupDefaultRules(Fuzzer fuzzer, Function<Supplier<?>, IPropertyValueGenerator> wrapperGenerator) {
 
         if ( wrapperGenerator == null ) {
             wrapperGenerator = (toWrap) -> (ctx) -> toWrap.get();

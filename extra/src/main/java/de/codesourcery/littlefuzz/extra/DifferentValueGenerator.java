@@ -20,11 +20,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import org.apache.commons.lang3.Validate;
-import de.codesourcery.littlefuzz.core.IFieldValueGenerator;
+import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 
 /**
- * Helper class that can wrap {@link IFieldValueGenerator field value generators}
- * so that they always generate a value that is not equal to the field's current value.
+ * Helper class that can wrap {@link IPropertyValueGenerator property value generators}
+ * so that they always generate a value that is not equal to the properties's current value.
  *
  * <p>
  * Because equality is a tricky problem and not all Java classes come with a suitable {@link Object#equals(Object)}
@@ -58,18 +58,18 @@ public class DifferentValueGenerator
     }
 
     /**
-     * Wraps an {@link IFieldValueGenerator} so that it never returns the value the current field already has.
+     * Wraps an {@link IPropertyValueGenerator} so that it never returns the value the property already has.
      * <p>
      * This method relies on the {@link #addEqualityRule(Class, BiPredicate)}  equality rules} configured on the current fuzzer.
      * </p>
      *
-     * @param delegate <code>IFieldValueGenerator</code> to wrap
+     * @param delegate <code>IPropertyValueGenerator</code> to wrap
      * @see #setDefaultEqualityRule(BiPredicate)
      * @see #addEqualityRule(Class, BiPredicate)
      */
-    public IFieldValueGenerator wrap(IFieldValueGenerator delegate) {
+    public IPropertyValueGenerator wrap(IPropertyValueGenerator delegate) {
         return context -> {
-            final Object currentValue = context.getFieldValue();
+            final Object currentValue = context.getPropertyValue();
             int retries = maxAttempts;
             while( retries-- > 0 ) {
                 final Object newValue = delegate.getValue( context );
@@ -124,8 +124,8 @@ public class DifferentValueGenerator
     }
 
     /**
-     * Sets the {@link BiPredicate<Object,Object> equality rule} to use when comparing a newly generated field value
-     * against the field's current value.
+     * Sets the {@link BiPredicate<Object,Object> equality rule} to use when comparing a newly generated
+     * value against a property's current value.
      *
      * @param equalityRule rule to use
      */

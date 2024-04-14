@@ -18,26 +18,25 @@ package de.codesourcery.littlefuzz.core;
 import java.util.function.Supplier;
 
 /**
- * Generates a new value for given field and applies it (if desired/applicable).
+ * Generates a new value for the current property and applies it.
  *
  * @author tobias.gierke@code-sourcery.de
  */
 @FunctionalInterface
 public interface IFuzzingRule
 {
-
     /**
      * A no-op rule that does nothing.
      */
     @SuppressWarnings("unused")
-    IFuzzingRule NOP_RULE = (fieldInfo, setter) -> {};
+    IFuzzingRule NOP_RULE = (ctx, setter) -> {};
 
     /**
      * Creates a rule that assigns a value from a {@link Supplier}.
      *
      * @param supplier provides the value to assign
      * @return the rule using that supplier
-     * @see #fromSupplier(IFieldValueGenerator)
+     * @see #fromSupplier(IPropertyValueGenerator)
      */
     static IFuzzingRule fromSupplier(Supplier<?> supplier)
     {
@@ -45,22 +44,22 @@ public interface IFuzzingRule
     }
 
     /**
-     * Creates a rule that assigns a value from a {@link IFieldValueGenerator}.
+     * Creates a rule that assigns a value from a {@link IPropertyValueGenerator}.
      *
      * @param supplier provides the value to assign
      * @return the rule using that supplier
      * @see #fromSupplier(Supplier)
      */
-    static IFuzzingRule fromSupplier(IFieldValueGenerator supplier)
+    static IFuzzingRule fromSupplier(IPropertyValueGenerator supplier)
     {
         return (context, setter) -> setter.set( supplier.getValue( context ) );
     }
 
     /**
-     * Fuzz a given field.
+     * Fuzz a given property.
      *
-     * @param context information about field that should be assigned etc.
-     * @param setter  setter that should be used to assign the field a new value
+     * @param context information about property that should be assigned etc.
+     * @param setter  setter to assign the new value
      */
-    void fuzz(Fuzzer.IContext context, IFieldSetter setter);
+    void fuzz(Fuzzer.IContext context, IPropertySetter setter);
 }

@@ -31,7 +31,7 @@ import org.easymock.EasyMock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import de.codesourcery.littlefuzz.core.Fuzzer;
-import de.codesourcery.littlefuzz.core.IFieldValueGenerator;
+import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 import de.codesourcery.littlefuzz.core.IFuzzingRule;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,11 +112,11 @@ class ExtraFuzzerTest
     private DifferentValueGenerator diffValues;
     private Fuzzer f;
 
-    private IFieldValueGenerator differentValues(Supplier<?> s) {
+    private IPropertyValueGenerator differentValues(Supplier<?> s) {
         return diffValues.wrap( ctx -> s.get() );
     }
 
-    private Function<Supplier<?>, IFieldValueGenerator> differentValues() {
+    private Function<Supplier<?>, IPropertyValueGenerator> differentValues() {
         return supplier -> diffValues.wrap( ctx -> supplier.get() );
     }
 
@@ -325,7 +325,7 @@ class ExtraFuzzerTest
     @Test
     void testUsesDefaultEqualityRuleIfNoSpecificOneConfigured() {
 
-        f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( Subclass::new ) );
+        f.addPropertyRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( Subclass::new ) );
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();
         f.fuzz( obj );
@@ -334,7 +334,7 @@ class ExtraFuzzerTest
     @Test
     void testRequiresCustomEqualityRule() {
 
-        f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) ) ;
+        f.addPropertyRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) ) ;
         final BiPredicate<Object,Object> rule = EasyMock.createMock( BiPredicate.class);
         replay( rule );
 
@@ -349,7 +349,7 @@ class ExtraFuzzerTest
     @Test
     void testCustomEqualityRule() {
 
-        f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) );
+        f.addPropertyRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) );
         final BiPredicate<Object,Object> rule = EasyMock.createMock(BiPredicate.class);
         expect( rule.test( anyObject(), anyObject() ) ).andReturn( false );
         replay( rule );

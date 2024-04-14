@@ -112,11 +112,11 @@ class FuzzerTest
     }
 
     @Test
-    public void testFieldRules()
+    public void testPropertyRules()
     {
         final RuleTest obj = new RuleTest();
-        f.addFieldRule( RuleTest.class, "a", IFuzzingRule.fromSupplier( () -> 42 ) );
-        f.addFieldRule( RuleTest.class, "b", IFuzzingRule.fromSupplier( () -> 43 ) );
+        f.addPropertyRule( RuleTest.class, "a", IFuzzingRule.fromSupplier( () -> 42 ) );
+        f.addPropertyRule( RuleTest.class, "b", IFuzzingRule.fromSupplier( () -> 43 ) );
 
         f.fuzz( obj );
         assertThat( obj.a ).isEqualTo( 42 );
@@ -154,14 +154,14 @@ class FuzzerTest
     }
 
     @Test
-    void testClearFieldRules()
+    void testClearPropertyRules()
     {
         f.clearTypeRules();
-        f.addTypeRule( (context,setter) -> setter.set( (int) context.getFieldValue() + 1), Integer.TYPE);
+        f.addTypeRule( (context,setter) -> setter.set( (int) context.getPropertyValue() + 1), Integer.TYPE);
 
-        f.addFieldRule( ClearTest2.class, "b", (fieldInfo, setter) -> {} );
+        f.addPropertyRule( ClearTest2.class, "b", (ctx, setter) -> {} );
         f.fuzz( new ClearTest2() );
-        f.clearFieldRules();
+        f.clearPropertyRules();
         assertThatThrownBy( () -> f.fuzz( new ClearTest2() ) ).isInstanceOf( RuntimeException.class );
     }
 }
