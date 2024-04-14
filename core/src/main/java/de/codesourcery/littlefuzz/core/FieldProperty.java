@@ -57,4 +57,10 @@ public class FieldProperty implements IProperty
             throw new RuntimeException( e );
         }
     }
+
+    @Override
+    public String toString()
+    {
+        return "(field) '" + getName() + "' of "+getDeclaringClass().getName();
+    }
 }

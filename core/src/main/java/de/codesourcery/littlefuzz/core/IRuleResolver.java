@@ -31,7 +31,7 @@ public interface IRuleResolver
      * </p>
      *
      * @param context context
-     * @return fuzzing rule to use, never <code>null</code>
+     * @return fuzzing rule to use or <code>null</code> if no suitable rule could be located.
      */
     IFuzzingRule getRule(Fuzzer.IContext context);
 }

@@ -54,7 +54,8 @@ To decide how to randomize a property value, the following algorithm is used:
 2. Check if there's a fuzzing rule matching the property's type. If it does, use that rule. 
 3. Throw a `RuntimeException` complaining that no rule for a property could be found.
 
-You can change this via the `setRuleResolver(IRuleResolver)` method.
+You can change this via the `setRuleResolver(IRuleResolver)` method. If you need to fuzz values for a lot of different types,
+check out `RecursiveRuleResolver` that will automatically instantiate POJO classes and recursively fuzz them.
 
 Finally, you're ready to fuzz an object:
 

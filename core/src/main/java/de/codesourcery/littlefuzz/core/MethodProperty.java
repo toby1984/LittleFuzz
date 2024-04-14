@@ -74,4 +74,10 @@ public class MethodProperty implements IProperty
             throw new RuntimeException( e );
         }
     }
+
+    @Override
+    public String toString()
+    {
+        return "(method) '" + getName() + "' of "+getDeclaringClass().getName();
+    }
 }

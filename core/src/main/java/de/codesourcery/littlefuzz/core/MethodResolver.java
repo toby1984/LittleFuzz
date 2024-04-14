@@ -7,13 +7,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A {@link IPropertyResolver} that looks for non-static methods.
+ *
+ * @author tobias.gierke@code-sourcery.de
+ */
 public class MethodResolver implements IPropertyResolver
 {
-    private static boolean isValidGetter(Method m) {
+    protected boolean isValidGetter(Method m) {
         return m.getName().startsWith("get") && m.getParameterTypes().length == 0 && m.getReturnType() != void.class;
     }
 
-    private static boolean isValidSetter(Method m) {
+    protected boolean isValidSetter(Method m) {
         return m.getName().startsWith("set") && m.getParameterTypes().length == 1;
     }
 
@@ -28,11 +33,7 @@ public class MethodResolver implements IPropertyResolver
             final Map<String,Method> setters = new HashMap<>();
             for ( final Method f : current.getDeclaredMethods() )
             {
-                if ( Modifier.isPublic( f.getModifiers() )
-                       && ! Modifier.isStatic( f.getModifiers() )
-                       && ! Modifier.isAbstract( f.getModifiers() )
-                       && ! Modifier.isNative( f.getModifiers() )
-                     )
+                if ( isSuitableMethod( f ) )
                 {
                     if ( isValidGetter(f)) {
                         getters.put( f.getName().substring( 3 ).toLowerCase(), f );
@@ -49,5 +50,13 @@ public class MethodResolver implements IPropertyResolver
             current = current.getSuperclass();
         }  while (includeInherited && current != Object.class );
         return result;
+    }
+
+    protected boolean isSuitableMethod(Method f)
+    {
+        return Modifier.isPublic( f.getModifiers() )
+            && !Modifier.isStatic( f.getModifiers() )
+            && !Modifier.isAbstract( f.getModifiers() )
+            && !Modifier.isNative( f.getModifiers() );
     }
 }

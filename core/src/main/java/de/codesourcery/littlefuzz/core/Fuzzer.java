@@ -54,10 +54,6 @@ public class Fuzzer
         IFuzzingRule result = fuzzer.propertyRules.get( new PropertyMatch( property.getDeclaringClass(), property.getName() ) );
         if ( result == null ) {
             result = fuzzer.typeRules.get( property.getType() );
-            if ( result == null )
-            {
-                throw new RuntimeException( "Error, found no fuzzing rule for " + property );
-            }
         }
         return result;
     };
@@ -95,20 +91,24 @@ public class Fuzzer
          * @see #getProperty()
          */
         Object getPropertyValue();
+
+        boolean includeInherited();
     }
 
     private static final class Context implements IContext
     {
         public final Fuzzer fuzzer;
         public final Object target;
+        public final boolean includeInherited;
         public IProperty currentProperty;
 
-        private Context(Fuzzer fuzzer, Object target)
+        private Context(Fuzzer fuzzer, Object target, boolean includeInherited)
         {
             Validate.notNull( fuzzer, "fuzzer must not be null" );
             Validate.notNull( target, "target object must not be null" );
             this.fuzzer = fuzzer;
             this.target = target;
+            this.includeInherited = includeInherited;
         }
 
         @Override
@@ -127,6 +127,12 @@ public class Fuzzer
         public Object getPropertyValue()
         {
             return currentProperty.getValue( target );
+        }
+
+        @Override
+        public boolean includeInherited()
+        {
+            return includeInherited;
         }
 
     }
@@ -335,7 +341,7 @@ public class Fuzzer
         if ( debug ) {
             System.out.println( "Randomizing object " + obj.getClass().getName() );
         }
-        final Context info = new Context(this , obj );
+        final Context info = new Context(this , obj, includingInheritedProperties);
         for ( IProperty property : propertyResolver.getProperties( obj.getClass(), includingInheritedProperties ) )
         {
             if ( debug ) {
@@ -348,7 +354,12 @@ public class Fuzzer
     }
 
     private IFuzzingRule getRule(IContext ctx) {
-        return ruleResolver.getRule( ctx );
+        IFuzzingRule rule = ruleResolver.getRule( ctx );
+        if ( rule == null )
+        {
+            throw new RuntimeException( "Error, found no fuzzing rule for " + ctx.getProperty() );
+        }
+        return rule;
     }
 
     /**

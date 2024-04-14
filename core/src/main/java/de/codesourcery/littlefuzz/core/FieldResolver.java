@@ -6,6 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+/**
+ * A {@link IPropertyResolver} that looks for non-static member fields.
+ *
+ * @author tobias.gierke@code-sourcery.de
+ */
 public class FieldResolver implements IPropertyResolver
 {
     private static final Pattern THIS_PTR = Pattern.compile( "^this\\$\\d+$" );
@@ -19,7 +24,7 @@ public class FieldResolver implements IPropertyResolver
         {
             for ( final Field f : current.getDeclaredFields() )
             {
-                if ( ! Modifier.isStatic( f.getModifiers() ) && ! THIS_PTR.matcher( f.getName() ).matches() )
+                if ( isSuitableField( f ) )
                 {
                     fields.add( new FieldProperty( f ) );
                 }
@@ -27,5 +32,10 @@ public class FieldResolver implements IPropertyResolver
             current = current.getSuperclass();
         }  while (includeInherited && current != Object.class );
         return fields;
+    }
+
+    protected boolean isSuitableField(Field f)
+    {
+        return !Modifier.isStatic( f.getModifiers() ) && !THIS_PTR.matcher( f.getName() ).matches();
     }
 }
