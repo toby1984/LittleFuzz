@@ -23,7 +23,7 @@ Assuming you're using Maven, just add this to your pom.xml
     <dependency>
       <groupId>de.code-sourcery.littlefuzz</groupId>
       <artifactId>littlefuzz-core</artifactId>
-      <version>1.0.3</version>
+      <version>1.0.4</version>
     </dependency>
 
 First, you'll have to create an instance of the `de.codesourcery.littlefuzz.core.Fuzzer`:
@@ -74,6 +74,6 @@ To use it, just add this to your pom.xml
     <dependency>
       <groupId>de.code-sourcery.littlefuzz</groupId>
       <artifactId>littlefuzz-extra</artifactId>
-      <version>1.0.3</version>
+      <version>1.0.4</version>
     </dependency>
  

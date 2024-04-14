@@ -213,12 +213,9 @@ public class Randomizer
      *
      * @param wrapperGenerator optional function to wrap the default field value generators before registering
      *                         them. May be <code>null</code> to not perform any wrapping at all.
-     * @see Fuzzer#clearRules()
      * @see DifferentValueGenerator#wrap(IFieldValueGenerator)
      */
     public void setupDefaultRules(Fuzzer fuzzer, Function<Supplier<?>, IFieldValueGenerator> wrapperGenerator) {
-
-        fuzzer.clearRules();
 
         if ( wrapperGenerator == null ) {
             wrapperGenerator = (toWrap) -> (ctx) -> toWrap.get();
