@@ -35,19 +35,18 @@ import de.codesourcery.littlefuzz.core.IFieldValueGenerator;
 import de.codesourcery.littlefuzz.core.IFuzzingRule;
 
 /**
- * Some helper functions that may be useful when implementing custom
- * {@link IFieldValueGenerator field value generators}.
+ * Helper functions to generate randomized field values using a {@link RandomGenerator}.
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public class GeneratorHelpers
+public class Randomizer
 {
     /** Default set of characters to use when generating random strings */
     public static final char[] DEFAULT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
 
     private final RandomGenerator randomGenerator;
 
-    public GeneratorHelpers(RandomGenerator randomGenerator)
+    public Randomizer(RandomGenerator randomGenerator)
     {
         Validate.notNull( randomGenerator, "randomGenerator must not be null" );
         this.randomGenerator = randomGenerator;

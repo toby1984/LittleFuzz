@@ -64,16 +64,16 @@ Finally, you're ready to fuzz an object:
 
 # Extras
 
-Additionally, there's the littlefuzz-extra module that comes with 
+Additionally, there's the littlefuzz-extra module includes all of `littlefuzz-core` plus 
 
-- a wrapper for `IFieldValueGenerator` instances that makes sure the generated value is never the current field value
-- A class that provides some helper methods for generating random field values based on `java.util.RandomGenerator`.
+- `DifferentValueGenerator`: A wrapper for `IFieldValueGenerator` instances that makes sure the generated value is never the current field value
+- `Randomizer`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate randomized field values using a `java.util.RandomGenerator`.
 
 To use it, just add this to your pom.xml
 
     <dependency>
       <groupId>de.code-sourcery.littlefuzz</groupId>
       <artifactId>littlefuzz-extra</artifactId>
-      <version>1.0.0</version>
+      <version>1.0.3</version>
     </dependency>
  

@@ -108,7 +108,7 @@ class ExtraFuzzerTest
         A,B,C
     }
 
-    private GeneratorHelpers generatorHelpers;
+    private Randomizer generatorHelpers;
     private DifferentValueGenerator diffValues;
     private Fuzzer f;
 
@@ -124,7 +124,7 @@ class ExtraFuzzerTest
     public void setup() {
         diffValues = new DifferentValueGenerator( 10 );
         f = new Fuzzer();
-        generatorHelpers = new GeneratorHelpers( new Random() );
+        generatorHelpers = new Randomizer( new Random() );
         generatorHelpers.setupDefaultRules( f, differentValues() );
     }
 
