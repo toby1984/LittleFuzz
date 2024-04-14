@@ -31,6 +31,11 @@ First, you'll have to create an instance of the `de.codesourcery.littlefuzz.core
 
     Fuzzer fuzzer = new Fuzzer();
 
+By default, only member fields will be available for fuzzing. You can change this via the `setPropertyResolver(IPropertyResolver)`
+method and, for example, assign a `MethodResolver` instead - or implement your own. 
+You may want to wrap the property resolver using a `CachingPropertyResolver` so that the expensive property resolution
+process is not run more often than necessary.
+
 Then you can register fuzzing rules (`de.codesourcery.littlefuzz.core.IFuzzingRule`) based on a property's 
 declaring class and name or based on the property type using the `addPropertyRule()` , `setPropertyRule()`, 
 `addTypeRule()` and `setTypeRule()` methods.
@@ -43,20 +48,13 @@ rule that may have been been already assigned.
         // a rule that just unconditionally increments the properties' value by one
         fuzzer.addTypeRule( (context,setter) -> setter.set( (int) context.getPropertyValue() + 1), Integer.TYPE);
 
-By default, all non-static member fields of a class (except any `this$<number>` references to enclosing classes)
-will be fuzzed. You can customize this behaviour by using the `setPropertyResolver(IPropertyResolver)` method.
-Property resolution is *not* cached by default so if execution speed is important, wrap the property resolver 
-using a `CachingPropertyResolver` like so:
-
-        fuzzer.setFieldResolver( CachingPropertyResolver.wrap( fuzzer.getPropertyResolver() ) );
-
 To decide how to randomize a property value, the following algorithm is used:
 
 1. Check if a fuzzing rule with the property's name and declaring class exists. If it does, use that rule.
 2. Check if there's a fuzzing rule matching the property's type. If it does, use that rule. 
 3. Throw a `RuntimeException` complaining that no rule for a property could be found.
 
-You can change this algorithm via the `setRuleResolver(IRuleResolver)` method.
+You can change this via the `setRuleResolver(IRuleResolver)` method.
 
 Finally, you're ready to fuzz an object:
 
@@ -65,7 +63,7 @@ Finally, you're ready to fuzz an object:
 
 # Extras
 
-Additionally, there's the littlefuzz-extra module includes all of `littlefuzz-core` plus 
+Additionally, there's the littlefuzz-extra module that includes all of `littlefuzz-core` plus 
 
 - `DifferentValueGenerator`: A wrapper for `IPropertyValueGenerator` instances that makes sure the newly assigned value is never equal to the current property value
 - `Randomizer`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate randomized property values using a `java.util.RandomGenerator`.
