@@ -1,11 +1,11 @@
-/**
- * Copyright 2024 Tobias Gierke <tobias.gierke@code-sourcery.de>
+/*
+ * Copyright © 2024 Tobias Gierke (tobias.gierke@code-sourcery.de)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -151,7 +151,7 @@ class ExtraFuzzerTest
     }
 
     @Test
-    public void testDefaultRulesDoNotGenerateIdenticalValues() throws IllegalAccessException
+    public void testDefaultRulesDoNotGenerateIdenticalValues()
     {
         final FastTest t = new FastTest();
         int retires = 10000;
@@ -160,7 +160,7 @@ class ExtraFuzzerTest
 
         while ( retires-- > 0 ) {
             byte oldValue = t.value;
-            f.assignRandomValues( t );
+            f.fuzz( t );
             if ( t.value == oldValue ) {
                 sameValue++;
             } else {
@@ -172,7 +172,7 @@ class ExtraFuzzerTest
     }
 
     @Test
-    public void testDefaultRulesGenerateIdenticalValues() throws IllegalAccessException
+    public void testDefaultRulesGenerateIdenticalValues()
     {
         f = new Fuzzer();
         generatorHelpers.setupDefaultRules( f, null );
@@ -184,7 +184,7 @@ class ExtraFuzzerTest
 
         while ( retires-- > 0 ) {
             byte oldValue = t.value;
-            f.assignRandomValues( t );
+            f.fuzz( t );
             if ( t.value == oldValue ) {
                 sameValue++;
             } else {
@@ -224,9 +224,9 @@ class ExtraFuzzerTest
     }
 
     @Test
-    public void testAssignSimpleFields() throws IllegalAccessException
+    public void testAssignSimpleFields()
     {
-        final A obj = f.assignRandomValues( new A() );
+        final A obj = f.fuzz( new A() );
         assertNotNull( obj.A );
         assertNotNull( obj.B );
         assertNotNull( obj.C );
@@ -241,7 +241,7 @@ class ExtraFuzzerTest
         {
             A copy = new A( obj );
             values.add( ReflectionToStringBuilder.toString( obj ) );
-            f.assignRandomValues( obj );
+            f.fuzz( obj );
             assertThat( EqualsBuilder.reflectionEquals( copy, obj ) ).isFalse();
         }
         assertThat( values ).hasSizeGreaterThan( 1 );
@@ -315,7 +315,7 @@ class ExtraFuzzerTest
 
         f.setTypeRule( IFuzzingRule.fromSupplier( differentValues( () -> 42L ) ) , Long.TYPE );
 
-        assertThatThrownBy( () -> f.assignRandomValues( obj ) ).isInstanceOf( RuntimeException.class );
+        assertThatThrownBy( () -> f.fuzz( obj ) ).isInstanceOf( RuntimeException.class );
     }
 
     static class EqualityTest {
@@ -323,12 +323,12 @@ class ExtraFuzzerTest
     }
 
     @Test
-    void testUsesDefaultEqualityRuleIfNoSpecificOneConfigured() throws IllegalAccessException {
+    void testUsesDefaultEqualityRuleIfNoSpecificOneConfigured() {
 
         f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( Subclass::new ) );
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();
-        f.assignRandomValues( obj );
+        f.fuzz( obj );
     }
 
     @Test
@@ -342,12 +342,12 @@ class ExtraFuzzerTest
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();
 
-        assertThatThrownBy( () -> f.assignRandomValues( obj ) ).isInstanceOf( RuntimeException.class );
+        assertThatThrownBy( () -> f.fuzz( obj ) ).isInstanceOf( RuntimeException.class );
         verify( rule );
     }
 
     @Test
-    void testCustomEqualityRule() throws IllegalAccessException {
+    void testCustomEqualityRule() {
 
         f.addFieldRule( EqualityTest.class, "value", IFuzzingRule.fromSupplier( differentValues( Subclass::new ) ) );
         final BiPredicate<Object,Object> rule = EasyMock.createMock(BiPredicate.class);
@@ -360,7 +360,7 @@ class ExtraFuzzerTest
         final EqualityTest obj = new EqualityTest();
         obj.value = new Superclass();
 
-        f.assignRandomValues( obj );
+        f.fuzz( obj );
         assertThat( obj.value ).isInstanceOf( Subclass.class );
         verify( rule );
     }

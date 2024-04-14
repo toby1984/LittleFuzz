@@ -1,11 +1,11 @@
-/**
- * Copyright 2024 Tobias Gierke <tobias.gierke@code-sourcery.de>
+/*
+ * Copyright © 2024 Tobias Gierke (tobias.gierke@code-sourcery.de)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ public interface IFuzzingRule
     /**
      * A no-op rule that does nothing.
      */
+    @SuppressWarnings("unused")
     IFuzzingRule NOP_RULE = (fieldInfo, setter) -> {};
 
     /**
@@ -60,7 +61,6 @@ public interface IFuzzingRule
      *
      * @param context information about field that should be assigned etc.
      * @param setter  setter that should be used to assign the field a new value
-     * @throws IllegalAccessException reflection...
      */
-    void fuzz(Fuzzer.IContext context, IFieldSetter setter) throws IllegalAccessException;
+    void fuzz(Fuzzer.IContext context, IFieldSetter setter);
 }

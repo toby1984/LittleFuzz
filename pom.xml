@@ -1,8 +1,26 @@
+<!--
+
+    Copyright © 2024 Tobias Gierke (tobias.gierke@code-sourcery.de)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.code-sourcery.littlefuzz</groupId>
   <artifactId>littlefuzz-parent</artifactId>
   <version>1.0.3-SNAPSHOT</version>
+  <inceptionYear>2024</inceptionYear>
   <name>LittleFuzz Parent</name>
   <packaging>pom</packaging>
   <description>A tiny reflection-based fuzzer written in Java, perfect for unit-testing</description>
@@ -29,6 +47,10 @@
       <id>release</id>
       <build>
         <plugins>
+          <plugin>
+            <groupId>com.mycila</groupId>
+            <artifactId>license-maven-plugin</artifactId>
+          </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-enforcer-plugin</artifactId>
@@ -155,7 +177,29 @@
     <pluginManagement>
 
       <plugins>
-
+        
+        <plugin>
+          <groupId>com.mycila</groupId>
+          <artifactId>license-maven-plugin</artifactId>
+          <version>4.3</version>
+          <configuration>
+            <properties>
+              <owner>Tobias Gierke</owner>
+              <email>tobias.gierke@code-sourcery.de</email>
+            </properties>
+            <licenseSets>
+              <licenseSet>
+                <header>com/mycila/maven/plugin/license/templates/APACHE-2.txt</header>
+                <excludes>
+                  <exclude>**/README</exclude>
+                  <exclude>src/test/resources/**</exclude>
+                  <exclude>src/main/resources/**</exclude>
+                </excludes>
+              </licenseSet>
+            </licenseSets>
+          </configuration>
+        </plugin>
+        
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
@@ -294,31 +338,6 @@
             <showWarnings>true</showWarnings>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>com.mycila.maven-license-plugin</groupId>
-          <artifactId>maven-license-plugin</artifactId>
-          <version>1.10.b1</version>
-          <configuration>
-            <header>etc/license_header.txt</header>
-            <quiet>false</quiet>
-            <failIfMissing>true</failIfMissing>
-            <basedir>${basedir}/src</basedir>
-            <excludes>
-              <exclude>**/*.xml</exclude>
-              <exclude>**/module-info.java/</exclude>
-              <exclude>**/.xsd</exclude>
-              <exclude>**/.properties</exclude>
-            </excludes>
-          </configuration>
-          <executions>
-            <execution>
-              <phase>package</phase>
-              <goals>
-                <goal>check</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
         <!-- enforcer plugin -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -364,6 +383,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
       </plugin>
     </plugins>
   </build>

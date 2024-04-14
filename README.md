@@ -27,14 +27,11 @@ First you'll have to create an instance of the `de.codesourcery.littlefuzz.core.
 
     Fuzzer fuzzer = new Fuzzer();
 
-You can register fuzzing rules (`de.codesourcery.littlefuzz.core.IFuzzingRule`) based on a field's 
+Then you can register fuzzing rules (`de.codesourcery.littlefuzz.core.IFuzzingRule`) based on a field's 
 declaring class and name or based on the field's type using the `addFieldRule()` , `setFieldRule()`, 
 `addTypeRule()` and `setTypeRule()` methods.
 
-By default, all non-static member fields of a class (except any `this$<number>` references to enclosing classes)
-will be fuzzed. You can customize this behaviour by using the `setFieldResolver(IFieldResolver)` method.
-
-The difference between the `addXXX()` and `setXXX()` rules is that the `addXXX()` methods will fail when trying to 
+The difference between the `addXXX()` and `setXXX()` rules is that the `addXXX()` methods will fail when trying to
 to register a rule more than once for any given type/field while the `setXXX()` methods will just overwrite any
 rule that may have been been already assigned.
 
@@ -45,13 +42,25 @@ rule that may have been been already assigned.
         // a rule that uses the fuzzer's rand
         fuzzer.addTypeRule( (context,setter) -> setter.set( (int) context.getFieldValue() + 1), Integer.TYPE);
 
-To decide how to randomize a field, the fuzzer uses the following algorithm:
+By default, all non-static member fields of a class (except any `this$<number>` references to enclosing classes)
+will be fuzzed. You can customize this behaviour by using the `setFieldResolver(IFieldResolver)` method.
+By default, field resolution is *not* cached so if execution speed is a priority,
+wrap the field resolver using `CachingFieldResolver`:
+
+        fuzzer.setFieldResolver( CachingFieldResolver.wrap( fuzzer.getFieldResolver() ) );
+
+To decide how to randomize a field's value, the fuzzer uses the following algorithm:
 
 1. Check if a fuzzing rule with the field's name and declaring class exists. If it does, use that rule.
 2. Check if there's a fuzzing rule matching the field's type. If it does, use that rule. 
 3. Throw a `RuntimeException` complaining that no rule for a field could be found.
 
-You can configure a custom algorithm using the `setRuleResolver(IRuleResolver)` method.
+You can change this algorithm via the `setRuleResolver(IRuleResolver)` method.
+
+Finally, you're ready to fuzz an object:
+
+    fuzzer.fuzz( myObject );
+    // fuzzer.fuzz( myObject, false ); // if field resolution should not consider inherited fields
 
 # Extras
 

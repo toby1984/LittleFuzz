@@ -1,11 +1,11 @@
-/**
- * Copyright 2024 Tobias Gierke <tobias.gierke@code-sourcery.de>
+/*
+ * Copyright © 2024 Tobias Gierke (tobias.gierke@code-sourcery.de)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,34 +45,34 @@ class FuzzerTest
     }
 
     @Test
-    public void testSuperclassIsConsidered() throws IllegalAccessException
+    public void testSuperclassIsConsidered()
     {
         f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextLong() ), Long.TYPE, Long.class );
 
         final Subclass x = new Subclass();
-        f.assignRandomValues( x, true );
+        f.fuzz( x, true );
         assertThat( x.a ).isNotNull();
         assertThat( x.b ).isNotNull();
         assertThat( Subclass.c ).isNull();
     }
 
     @Test
-    public void testSuperclassIsConsidered2() throws IllegalAccessException
+    public void testSuperclassIsConsidered2()
     {
         final Subclass x = new Subclass();
         f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextLong() ), Long.class);
-        f.assignRandomValues( x );
+        f.fuzz( x );
         assertThat( x.a ).isNotNull();
         assertThat( x.b ).isNotNull();
         assertThat( Subclass.c ).isNull();
     }
 
     @Test
-    public void testSuperclassIsNotConsidered() throws IllegalAccessException
+    public void testSuperclassIsNotConsidered()
     {
         final Subclass x = new Subclass();
         f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextLong() ), Long.class);
-        f.assignRandomValues( x, false );
+        f.fuzz( x, false );
         assertThat( x.a ).isNull();
         assertThat( x.b ).isNotNull();
         assertThat( Subclass.c ).isNull();
@@ -83,10 +83,10 @@ class FuzzerTest
     }
 
     @Test
-    public void testCustomRule() throws IllegalAccessException
+    public void testCustomRule()
     {
         f.setTypeRule( IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
-        final Custom obj = f.assignRandomValues( new Custom() );
+        final Custom obj = f.fuzz( new Custom() );
         assertThat( obj.value ).isEqualTo( 42L );
     }
 
@@ -99,12 +99,12 @@ class FuzzerTest
     }
 
     @Test
-    public void testIgnoringEqualityCheckWorks() throws IllegalAccessException
+    public void testIgnoringEqualityCheckWorks()
     {
         final Custom obj = new Custom();
         obj.value = 42L;
         f.setTypeRule( IFuzzingRule.fromSupplier( () -> 42L ) , Long.TYPE );
-        f.assignRandomValues( obj );
+        f.fuzz( obj );
     }
 
     static class RuleTest {
@@ -112,51 +112,56 @@ class FuzzerTest
     }
 
     @Test
-    public void testFieldRules() throws IllegalAccessException
+    public void testFieldRules()
     {
         final RuleTest obj = new RuleTest();
         f.addFieldRule( RuleTest.class, "a", IFuzzingRule.fromSupplier( () -> 42 ) );
         f.addFieldRule( RuleTest.class, "b", IFuzzingRule.fromSupplier( () -> 43 ) );
 
-        f.assignRandomValues( obj );
+        f.fuzz( obj );
         assertThat( obj.a ).isEqualTo( 42 );
         assertThat( obj.b ).isEqualTo( 43 );
     }
 
-    static class ClearTest {int a;}
-
-    @Test
-    void testClearRules() throws IllegalAccessException
-    {
-        f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextInt() ), Integer.TYPE );
-        f.assignRandomValues( new ClearTest() );
-        f.clearRules();
-        assertThatThrownBy( () -> f.assignRandomValues( new ClearTest() ) ).isInstanceOf( RuntimeException.class );
-    }
-
-    @Test
-    void testClearTypeRules() throws IllegalAccessException
-    {
-        f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextInt() ), Integer.TYPE );
-        f.assignRandomValues( new ClearTest() );
-        f.clearTypeRules();
-        assertThatThrownBy( () -> f.assignRandomValues( new ClearTest() ) ).isInstanceOf( RuntimeException.class );
-    }
-
-    class ClearTest2 {
+    static class ClearTest {
+        @SuppressWarnings("unused")
         int a;
+    }
+
+    @Test
+    void testClearRules()
+    {
+        f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextInt() ), Integer.TYPE );
+        f.fuzz( new ClearTest() );
+        f.clearRules();
+        assertThatThrownBy( () -> f.fuzz( new ClearTest() ) ).isInstanceOf( RuntimeException.class );
+    }
+
+    @Test
+    void testClearTypeRules()
+    {
+        f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextInt() ), Integer.TYPE );
+        f.fuzz( new ClearTest() );
+        f.clearTypeRules();
+        assertThatThrownBy( () -> f.fuzz( new ClearTest() ) ).isInstanceOf( RuntimeException.class );
+    }
+
+    static class ClearTest2 {
+        @SuppressWarnings("unused")
+        int a;
+        @SuppressWarnings("unused")
         ClearTest b;
     }
 
     @Test
-    void testClearFieldRules() throws IllegalAccessException
+    void testClearFieldRules()
     {
         f.clearTypeRules();
         f.addTypeRule( (context,setter) -> setter.set( (int) context.getFieldValue() + 1), Integer.TYPE);
 
         f.addFieldRule( ClearTest2.class, "b", (fieldInfo, setter) -> {} );
-        f.assignRandomValues( new ClearTest2() );
+        f.fuzz( new ClearTest2() );
         f.clearFieldRules();
-        assertThatThrownBy( () -> f.assignRandomValues( new ClearTest2() ) ).isInstanceOf( RuntimeException.class );
+        assertThatThrownBy( () -> f.fuzz( new ClearTest2() ) ).isInstanceOf( RuntimeException.class );
     }
 }

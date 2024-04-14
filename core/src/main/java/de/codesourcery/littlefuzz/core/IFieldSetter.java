@@ -1,11 +1,11 @@
-/**
- * Copyright 2024 Tobias Gierke <tobias.gierke@code-sourcery.de>
+/*
+ * Copyright © 2024 Tobias Gierke (tobias.gierke@code-sourcery.de)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,7 +26,6 @@ public interface IFieldSetter
     /**
      * Assign value to {@link Fuzzer.IContext#getField() current field}
      * @param value value to assign
-     * @throws IllegalAccessException if assigning the field changed
      */
-    void set(Object value) throws IllegalAccessException;
+    void set(Object value);
 }
