@@ -1,3 +1,4 @@
+
 /*
  * Copyright © 2024 Tobias Gierke (tobias.gierke@code-sourcery.de)
  *
@@ -23,7 +24,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
@@ -31,8 +31,9 @@ import org.easymock.EasyMock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import de.codesourcery.littlefuzz.core.Fuzzer;
-import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 import de.codesourcery.littlefuzz.core.IFuzzingRule;
+import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
+import de.codesourcery.littlefuzz.core.MethodResolver;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,6 +42,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class ExtraFuzzerTest
 {
@@ -108,7 +110,7 @@ class ExtraFuzzerTest
         A,B,C
     }
 
-    private Randomizer generatorHelpers;
+    private Randomizer randomizer;
     private DifferentValueGenerator diffValues;
     private Fuzzer f;
 
@@ -116,30 +118,26 @@ class ExtraFuzzerTest
         return diffValues.wrap( ctx -> s.get() );
     }
 
-    private Function<Supplier<?>, IPropertyValueGenerator> differentValues() {
-        return supplier -> diffValues.wrap( ctx -> supplier.get() );
-    }
-
     @BeforeEach
     public void setup() {
         diffValues = new DifferentValueGenerator( 10 );
         f = new Fuzzer();
-        generatorHelpers = new Randomizer( new Random() );
-        generatorHelpers.setupDefaultRules( f, differentValues() );
+        randomizer = new Randomizer( new Random() );
+        randomizer.setupDefaultRules( f, diffValues.differentValues() );
     }
 
     @Test
-    public void testPickEnumValues()
+    void testPickEnumValues()
     {
         for (int i = 0 ; i < 10 ; i++)
         {
-            assertThat( generatorHelpers.pickRandomEnumValue( EmptyEnum.class ) ).isEmpty();
+            assertThat( randomizer.pickRandomEnumValue( EmptyEnum.class ) ).isEmpty();
         }
 
         final Set<NonEmptyEnum> toTest = new HashSet<>();
         for (int i = 0 ; i < 10 ; i++)
         {
-            final Optional<Object> v = generatorHelpers.pickRandomEnumValue( NonEmptyEnum.class );
+            final Optional<Object> v = randomizer.pickRandomEnumValue( NonEmptyEnum.class );
             assertThat( v ).isPresent();
             toTest.add( (NonEmptyEnum) v.get() );
         }
@@ -175,7 +173,7 @@ class ExtraFuzzerTest
     public void testDefaultRulesGenerateIdenticalValues()
     {
         f = new Fuzzer();
-        generatorHelpers.setupDefaultRules( f, null );
+        randomizer.setupDefaultRules( f, null );
 
         final FastTest t = new FastTest();
         int retires = 10000;
@@ -201,14 +199,14 @@ class ExtraFuzzerTest
         //
         for (int i = 0 ; i < 100 ; i++)
         {
-            final String s = generatorHelpers.createRandomString( 0, 0 );
+            final String s = randomizer.createRandomString( 0, 0 );
             assertThat( s ).isEmpty();
         }
 
         //
         for (int i = 0 ; i < 100 ; i++)
         {
-            final String s = generatorHelpers.createRandomString( 10, 10 );
+            final String s = randomizer.createRandomString( 10, 10 );
             assertThat( s ).hasSize( 10 );
         }
 
@@ -216,7 +214,7 @@ class ExtraFuzzerTest
         final Set<String> strings = new HashSet<>();
         for (int i = 0 ; i < 100 ; i++)
         {
-            final String s = generatorHelpers.createRandomString( 0, 10 );
+            final String s = randomizer.createRandomString( 0, 10 );
             strings.add( s );
             assertThat( s.length() ).isBetween( 0, 10 );
         }
@@ -251,7 +249,7 @@ class ExtraFuzzerTest
     public void testGenerateRandomMap() {
 
         final Map<String, String> map =
-            generatorHelpers.createRandomStringMap( 1, 5, 10, 20 );
+            randomizer.createRandomStringMap( 1, 5, 10, 20 );
 
         for ( final Map.Entry<String, String> entry : map.entrySet() )
         {
@@ -266,7 +264,7 @@ class ExtraFuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                generatorHelpers.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, true );
+                randomizer.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, true );
             assertThat( l ).hasSize( 3 );
         }
     }
@@ -276,7 +274,7 @@ class ExtraFuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                generatorHelpers.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, false );
+                randomizer.pickRandomElements( List.of( "a", "b", "c", "d", "e", "f" ), 3, false );
             assertThat( l ).hasSize( 3 );
             assertThat( new HashSet<>(l) ).hasSize( l.size() );
         }
@@ -287,7 +285,7 @@ class ExtraFuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                generatorHelpers.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, true );
+                randomizer.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, true );
             assertThat( l ).hasSize( 3 );
         }
     }
@@ -297,7 +295,7 @@ class ExtraFuzzerTest
 
         for ( int i = 0 ; i < 10 ; i++ ) {
             final List<String> l =
-                generatorHelpers.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, false );
+                randomizer.pickRandomElements( Set.of( "a", "b", "c", "d", "e", "f" ), 3, false );
             assertThat( l ).hasSize( 3 );
             assertThat( new HashSet<>(l) ).hasSize( l.size() );
         }
@@ -363,5 +361,75 @@ class ExtraFuzzerTest
         f.fuzz( obj );
         assertThat( obj.value ).isInstanceOf( Subclass.class );
         verify( rule );
+    }
+
+    class SetterTest {
+
+        int a;
+        String b;
+
+        public void setA(int value) {
+            this.a = value;
+        }
+
+        public int getA()
+        {
+            return a;
+        }
+
+        public void setB(String b)
+        {
+            this.b = b;
+        }
+
+        public String getB()
+        {
+            return b;
+        }
+    }
+
+    @Test
+    void testMethodInjectionSetterAndGetter() {
+
+        // note: this test needs setter methods AND getters since the fuzzer is configured
+        //       with the DifferentValueGenerator that needs to retrieve the current property value
+        f.setPropertyResolver( new MethodResolver() );
+        SetterTest t = new SetterTest();
+        f.fuzz( t );
+        assertThat( t.a ).isNotZero();
+        assertThat( t.b ).isNotNull();
+    }
+
+    class SetterTest2 {
+
+        int a;
+        String b;
+
+        public void setA(int value) {
+            this.a = value;
+        }
+
+        public void setB(String b)
+        {
+            this.b = b;
+        }
+    }
+
+    @Test
+    void testMethodInjectionSetterOnly() {
+
+        f = new Fuzzer();
+        f.setPropertyResolver( new MethodResolver() );
+        randomizer.setupDefaultRules( f, null );
+        for ( int i = 0 ; i < 10 ; i++ )
+        {
+            final SetterTest t = new SetterTest();
+            f.fuzz( t );
+            if ( t.a != 0 && t.b != null ) {
+                return;
+            }
+        }
+        // most likely some bug
+        fail( "field values did as expected even after 10 retries ?" );
     }
 }

@@ -19,7 +19,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.commons.lang3.Validate;
+import de.codesourcery.littlefuzz.core.Fuzzer;
 import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 
 /**
@@ -55,6 +58,18 @@ public class DifferentValueGenerator
     {
         Validate.isTrue( maxAttempts > 0 );
         this.maxAttempts = maxAttempts;
+    }
+
+    /**
+     * Helper method returning a function that turns every {@link Supplier}
+     * into a {@link IPropertyValueGenerator} that will never yield the same
+     * value the current property already has.
+     *
+     * @return wrapper function
+     * @see Randomizer#setupDefaultRules(Fuzzer, Function)
+     */
+    public Function<Supplier<?>, IPropertyValueGenerator> differentValues() {
+        return supplier -> wrap( ctx -> supplier.get() );
     }
 
     /**

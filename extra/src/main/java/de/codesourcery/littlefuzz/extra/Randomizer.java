@@ -35,7 +35,8 @@ import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 import de.codesourcery.littlefuzz.core.IFuzzingRule;
 
 /**
- * Helper functions to generate randomized property values using a {@link RandomGenerator}.
+ * Helper functions to generate randomized property values using a {@link RandomGenerator}
+ * as sourcee of randomness.
  *
  * @author tobias.gierke@code-sourcery.de
  */

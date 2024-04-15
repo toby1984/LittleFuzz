@@ -3,6 +3,11 @@ package de.codesourcery.littlefuzz.core;
 import java.lang.reflect.Field;
 import org.apache.commons.lang3.Validate;
 
+/**
+ * A {@link IProperty} that maps to a {@link java.lang.reflect.Field}.
+ *
+ * @author tobias.gierke@code-sourcery.de
+ */
 public class FieldProperty implements IProperty
 {
     private final Field field;
@@ -61,6 +66,6 @@ public class FieldProperty implements IProperty
     @Override
     public String toString()
     {
-        return "(field) '" + getName() + "' of "+getDeclaringClass().getName();
+        return "Field '" + getName() + "' with type " + getType().getName() + " of " + getDeclaringClass().getName();
     }
 }

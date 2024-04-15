@@ -42,10 +42,12 @@ public class MethodResolver implements IPropertyResolver
                     }
                 }
             }
-            for ( final Map.Entry<String, Method> setter : setters.entrySet() )
+            for ( final Map.Entry<String, Method> entry : setters.entrySet() )
             {
-                final Method getter = getters.get( setter.getKey() );
-                result.add( new MethodProperty( setter.getKey(), getter, setter.getValue() ) );
+                final Method getter = getters.get( entry.getKey() );
+                entry.getValue().setAccessible( true );
+                getter.setAccessible( true );
+                result.add( new MethodProperty( entry.getKey(), getter, entry.getValue() ) );
             }
             current = current.getSuperclass();
         }  while (includeInherited && current != Object.class );

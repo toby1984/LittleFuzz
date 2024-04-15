@@ -4,6 +4,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import org.apache.commons.lang3.Validate;
 
+/**
+ * A {@link IProperty} that maps to a {@link java.lang.reflect.Method}.
+ *
+ * @author tobias.gierke@code-sourcery.de
+ */
 public class MethodProperty implements IProperty
 {
     private final Method getterMethod;
@@ -30,13 +35,13 @@ public class MethodProperty implements IProperty
     @Override
     public Class<?> getDeclaringClass()
     {
-        return getterMethod.getDeclaringClass();
+        return setterMethod.getDeclaringClass();
     }
 
     @Override
     public Class<?> getType()
     {
-        return getterMethod.getReturnType();
+        return setterMethod.getParameterTypes()[0];
     }
 
     @Override
@@ -78,6 +83,6 @@ public class MethodProperty implements IProperty
     @Override
     public String toString()
     {
-        return "(method) '" + getName() + "' of "+getDeclaringClass().getName();
+        return "Method '" + getName() + "(" + getType().getName() + ")' of " + getDeclaringClass().getName();
     }
 }

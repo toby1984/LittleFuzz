@@ -30,6 +30,7 @@ public class RecursiveRuleResolver implements IRuleResolver
         if ( result == null && isObject( context.getProperty() ) ) {
             final Optional<Constructor<?>> cnstr = getConstructor( context.getProperty() );
             if ( cnstr.isPresent() ) {
+                cnstr.get().setAccessible( true );
                 return (context1, setter) -> {
                     try
                     {
@@ -49,7 +50,7 @@ public class RecursiveRuleResolver implements IRuleResolver
 
     private Optional<Constructor<?>> getConstructor(IProperty property) {
 
-        return Arrays.stream( property.getDeclaringClass().getDeclaredConstructors() )
+        return Arrays.stream( property.getType().getDeclaredConstructors() )
             .filter( x -> x.getParameterCount() == 0 ).findFirst();
     }
 

@@ -42,7 +42,7 @@ declaring class and name or based on the property type using the `addPropertyRul
 
 The difference between the `addXXX()` and `setXXX()` rules is that the `addXXX()` methods will fail when trying to
 to register a rule more than once for any given type/property while the `setXXX()` methods will just overwrite any
-rule that may have been been already assigned.
+rule that may have been already assigned.
 
         fuzzer.addPropertyRule( SomeClass.class, "b", (context, setter) -> {} );
         // a rule that just unconditionally increments the properties' value by one
@@ -67,7 +67,7 @@ Finally, you're ready to fuzz an object:
 Additionally, there's the littlefuzz-extra module that includes all of `littlefuzz-core` plus 
 
 - `DifferentValueGenerator`: A wrapper for `IPropertyValueGenerator` instances that makes sure the newly assigned value is never equal to the current property value
-- `Randomizer`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate randomized property values using a `java.util.RandomGenerator`.
+- `Randomizer`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate property values based on a `java.util.RandomGenerator`.
 
 To use it, just add this to your pom.xml
 
@@ -76,4 +76,3 @@ To use it, just add this to your pom.xml
       <artifactId>littlefuzz-extra</artifactId>
       <version>1.0.4</version>
     </dependency>
- 

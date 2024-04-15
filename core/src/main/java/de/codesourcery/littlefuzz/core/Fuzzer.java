@@ -413,4 +413,15 @@ public class Fuzzer
     {
         return propertyResolver;
     }
+
+    /**
+     * Returns the {@link IRuleResolver} currently in use.
+     *
+     * @return resolver
+     * @see #setRuleResolver(IRuleResolver)
+     */
+    public IRuleResolver getRuleResolver()
+    {
+        return ruleResolver;
+    }
 }
