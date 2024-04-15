@@ -3,8 +3,8 @@
 
 ## LittleFuzz
 
-A tiny reflection-based fuzzer written in Java, perfect for unit-testing. Its purpose is to assign random 
-values to object properties (out of the box, methods and fields are supported) 
+A tiny (no external dependencies) reflection-based fuzzer written in Java, perfect for unit-testing. 
+Its purpose is to assign random values to object properties (out of the box, methods and fields are supported) 
 using customizable value generation and property discovery strategies. 
 
 ### Requirements (using)
