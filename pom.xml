@@ -127,7 +127,7 @@
 
       <dependency>
         <groupId>de.code-sourcery.littlefuzz</groupId>
-        <artifactId>littlefuzz-extra</artifactId>
+        <artifactId>littlefuzz-full</artifactId>
         <version>1.0.5-SNAPSHOT</version>
       </dependency>
 
@@ -423,6 +423,6 @@
   </dependencies>
   <modules>
     <module>core</module>
-    <module>extra</module>
+    <module>full</module>
   </modules>
 </project>

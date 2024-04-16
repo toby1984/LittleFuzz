@@ -19,13 +19,23 @@ To publish to Maven Central, use `mvn -Prelease release:prepare release:perform`
 
 ### Usage
 
-Assuming you're using Maven, just add this to your pom.xml
+Assuming you're using Maven, add this to your pom.xml
+
+    <dependency>
+      <groupId>de.code-sourcery.littlefuzz</groupId>
+      <artifactId>littlefuzz-full</artifactId>
+      <version>1.0.5</version>
+    </dependency>
+
+If you don't care about the support classes (see below) that come with the full package, use 'littlefuzz-core' only:
 
     <dependency>
       <groupId>de.code-sourcery.littlefuzz</groupId>
       <artifactId>littlefuzz-core</artifactId>
-      <version>1.0.4</version>
+      <version>1.0.5</version>
     </dependency>
+
+#### Getting started
 
 First, you'll have to create an instance of the `de.codesourcery.littlefuzz.core.Fuzzer`:
 
@@ -62,17 +72,9 @@ Finally, you're ready to fuzz an object:
     fuzzer.fuzz( myObject );
     // fuzzer.fuzz( myObject, false ); // if property resolution should not consider inherited properties
 
-# Extras
+# Core vs Full
 
-Additionally, there's the littlefuzz-extra module that includes all of `littlefuzz-core` plus 
+The littlefuzz-full module contains some helpers that are build on top of the 'core' classes:
 
 - `DifferentValueGenerator`: A wrapper for `IPropertyValueGenerator` instances that makes sure the newly assigned value is never equal to the current property value
 - `Randomizer`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate property values based on a `java.util.RandomGenerator`.
-
-To use it, just add this to your pom.xml
-
-    <dependency>
-      <groupId>de.code-sourcery.littlefuzz</groupId>
-      <artifactId>littlefuzz-extra</artifactId>
-      <version>1.0.4</version>
-    </dependency>

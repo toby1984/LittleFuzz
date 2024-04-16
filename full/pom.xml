@@ -22,8 +22,8 @@
     <artifactId>littlefuzz-parent</artifactId>
     <version>1.0.5-SNAPSHOT</version>
   </parent>
-  <artifactId>littlefuzz-extra</artifactId>
-  <name>LittleFuzz Extra</name>
+  <artifactId>littlefuzz-full</artifactId>
+  <name>LittleFuzz Full</name>
   
   <dependencies>
     <dependency>
