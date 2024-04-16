@@ -153,6 +153,22 @@ class FuzzerTest
         ClearTest b;
     }
 
+    class SinglePropertyTest {
+
+        int x;
+        String y;
+    }
+
+    @Test
+    void testFuzzSingleProperty() throws NoSuchFieldException
+    {
+        final SinglePropertyTest t = new SinglePropertyTest();
+        f.addTypeRule( (ctx, setter) -> setter.set( rnd.nextInt() ), Integer.TYPE );
+        f.fuzz( t, new FieldProperty( SinglePropertyTest.class.getDeclaredField( "x" ) ) );
+        assertThat( t.x ).isNotZero();
+        assertThat( t.y ).isNull();
+    }
+
     @Test
     void testClearPropertyRules()
     {
