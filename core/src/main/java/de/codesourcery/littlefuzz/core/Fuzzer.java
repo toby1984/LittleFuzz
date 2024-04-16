@@ -344,13 +344,31 @@ public class Fuzzer
         final Context info = new Context(this , obj, includingInheritedProperties);
         for ( IProperty property : propertyResolver.getProperties( obj.getClass(), includingInheritedProperties ) )
         {
-            if ( debug ) {
-                System.out.println( "Assigning random value to "+property);
-            }
-            info.currentProperty = property;
-            getRule( info ).fuzz( info, value -> property.setValue( obj, value  ) );
+            fuzz( info, property );
         }
         return obj;
+    }
+
+    private void fuzz(Context info, IProperty property) {
+
+        if ( debug ) {
+            System.out.println( "Assigning random value to "+property);
+        }
+        info.currentProperty = property;
+        getRule( info ).fuzz( info, value -> property.setValue( info.target, value  ) );
+    }
+
+    /**
+     * Fuzz only a single property of an object.
+     *
+     * @param obj the object that has the property
+     * @param property property to fuzz
+     */
+    public void fuzz(Object obj, IProperty property) {
+        Validate.notNull( obj, "obj must not be null" );
+        Validate.notNull( property, "property must not be null" );
+
+        fuzz( new Context( this, obj, false ), property );
     }
 
     private IFuzzingRule getRule(IContext ctx) {

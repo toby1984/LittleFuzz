@@ -233,4 +233,15 @@ public class Randomizer
         fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ) ) ), java.time.Instant.class );
         fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ).atZone( ZoneId.systemDefault() ) ) ), ZonedDateTime.class  );
     }
+
+    /**
+     * Returns the random generator used by this class.
+     *
+     * @return random generator, never <code>null</code>
+     * @see #Randomizer(RandomGenerator)
+     */
+    public RandomGenerator getRandomGenerator()
+    {
+        return randomGenerator;
+    }
 }
