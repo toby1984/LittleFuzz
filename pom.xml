@@ -19,7 +19,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.code-sourcery.littlefuzz</groupId>
   <artifactId>littlefuzz-parent</artifactId>
-  <version>1.0.5</version>
+  <version>1.0.6-SNAPSHOT</version>
   <inceptionYear>2024</inceptionYear>
   <name>LittleFuzz Parent</name>
   <packaging>pom</packaging>
@@ -96,7 +96,7 @@
     <connection>scm:git:git@github.com:toby1984/LittleFuzz.git</connection>
     <developerConnection>scm:git:git@github.com:toby1984/LittleFuzz.git</developerConnection>
     <url>https://github.com/toby1984/LittleFuzz</url>
-    <tag>littlefuzz-parent-1.0.5</tag>
+    <tag>HEAD</tag>
   </scm>
   <licenses>
     <license>
@@ -122,13 +122,13 @@
       <dependency>
         <groupId>de.code-sourcery.littlefuzz</groupId>
         <artifactId>littlefuzz-core</artifactId>
-        <version>1.0.5</version>
+        <version>1.0.6-SNAPSHOT</version>
       </dependency>
 
       <dependency>
         <groupId>de.code-sourcery.littlefuzz</groupId>
         <artifactId>littlefuzz-full</artifactId>
-        <version>1.0.5</version>
+        <version>1.0.6-SNAPSHOT</version>
       </dependency>
 
       <dependency>
