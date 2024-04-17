@@ -66,7 +66,7 @@ public class DifferentValueGenerator
      * value the current property already has.
      *
      * @return wrapper function
-     * @see Randomizer#setupDefaultRules(Fuzzer, Function)
+     * @see RandomUtils#setupDefaultRules(Fuzzer, Function)
      */
     public Function<Supplier<?>, IPropertyValueGenerator> differentValues() {
         return supplier -> wrap( ctx -> supplier.get() );

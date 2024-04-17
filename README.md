@@ -77,4 +77,4 @@ Finally, you're ready to fuzz an object:
 The littlefuzz-full module contains some helpers that are build on top of the 'core' classes:
 
 - `DifferentValueGenerator`: A wrapper for `IPropertyValueGenerator` instances that makes sure the newly assigned value is never equal to the current property value
-- `Randomizer`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate property values based on a `java.util.RandomGenerator`.
+- `RandimUtils`: Helper functions (like selecting N random values out of a Java `Collection` etc) to generate property values based on a `java.util.RandomGenerator`.

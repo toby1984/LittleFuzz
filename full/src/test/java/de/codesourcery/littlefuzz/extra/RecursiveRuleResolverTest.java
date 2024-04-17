@@ -49,7 +49,7 @@ class RecursiveRuleResolverTest
     @BeforeEach
     void setup() {
         fuzzer = new Fuzzer();
-        final Randomizer rnd = new Randomizer( new Random() );
+        final RandomUtils rnd = new RandomUtils( new Random() );
         final DifferentValueGenerator gen = new DifferentValueGenerator( 10 );
         rnd.setupDefaultRules( fuzzer, gen.differentValues() );
         fuzzer.setRuleResolver( new RecursiveRuleResolver( fuzzer.getRuleResolver() ) );

@@ -35,19 +35,19 @@ import de.codesourcery.littlefuzz.core.IPropertyValueGenerator;
 import de.codesourcery.littlefuzz.core.IFuzzingRule;
 
 /**
- * Helper functions to generate randomized property values using a {@link RandomGenerator}
- * as sourcee of randomness.
+ * Class containing helper methods to generate randomized
+ * property values using a {@link RandomGenerator} as source of randomness.
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public class Randomizer
+public class RandomUtils
 {
     /** Default set of characters to use when generating random strings */
     public static final char[] DEFAULT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
 
     private final RandomGenerator randomGenerator;
 
-    public Randomizer(RandomGenerator randomGenerator)
+    public RandomUtils(RandomGenerator randomGenerator)
     {
         Validate.notNull( randomGenerator, "randomGenerator must not be null" );
         this.randomGenerator = randomGenerator;
@@ -81,7 +81,13 @@ public class Randomizer
      * @param <T> collection type
      */
     public <T> List<T> pickRandomElements(Collection<T> collection, int noElementsToPick, boolean repetitionAllowed) {
+        Validate.notNull( collection, "collection must not be null" );
+        Validate.isTrue( noElementsToPick > 0 );
 
+        if ( ! repetitionAllowed && noElementsToPick > collection.size() ) {
+            throw new IllegalArgumentException("Cannot take "+noElementsToPick+" elements without repetition out of " +
+                " a collection with size "+collection.size());
+        }
         noElementsToPick = Math.min( collection.size(), noElementsToPick );
         if ( noElementsToPick == 0 ) {
             return new ArrayList<>(0);
@@ -191,7 +197,7 @@ public class Randomizer
         final int len = minLen == maxLen ? minLen : minLen + randomGenerator.nextInt( maxLen - minLen -1 );
         final StringBuilder buffer = new StringBuilder();
         for ( int i = len ; i > 0 ; i-- ) {
-            buffer.append( DEFAULT_CHARS[randomGenerator.nextInt( 0, DEFAULT_CHARS.length )] );
+            buffer.append( chars[randomGenerator.nextInt( 0, chars.length )] );
         }
         return buffer.toString();
     }
@@ -212,33 +218,33 @@ public class Randomizer
      * using random characters out the {@link #DEFAULT_CHARS} array, again relying on this classes {@link RandomGenerator}.
      * </p>
      *
-     * @param wrapperGenerator optional function to wrap the default property value generators before registering
+     * @param wrapper optional function to wrap the default property value generators before registering
      *                         them. May be <code>null</code> to not perform any wrapping at all.
      * @see DifferentValueGenerator#wrap(IPropertyValueGenerator)
      */
-    public void setupDefaultRules(Fuzzer fuzzer, Function<Supplier<?>, IPropertyValueGenerator> wrapperGenerator) {
+    public void setupDefaultRules(Fuzzer fuzzer, Function<Supplier<?>, IPropertyValueGenerator> wrapper) {
 
-        if ( wrapperGenerator == null ) {
-            wrapperGenerator = (toWrap) -> (ctx) -> toWrap.get();
+        if ( wrapper == null ) {
+            wrapper = (toWrap) -> (ctx) -> toWrap.get();
         }
 
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> createRandomString( 1,20 ) ) ), String.class );
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextLong ) ), Long.class, Long.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextInt ) ), Integer.class, Integer.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> (short) randomGenerator.nextInt() ) ), Short.class, Short.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextFloat ) ), Float.class, Float.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextDouble ) ), Double.class, Double.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> (byte) randomGenerator.nextInt() ) ), Byte.class, Byte.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( randomGenerator::nextBoolean ) ), Boolean.class, Boolean.TYPE);
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ) ) ), java.time.Instant.class );
-        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapperGenerator.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ).atZone( ZoneId.systemDefault() ) ) ), ZonedDateTime.class  );
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( () -> createRandomString( 1,20 ) ) ), String.class );
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( randomGenerator::nextLong ) ), Long.class, Long.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( randomGenerator::nextInt ) ), Integer.class, Integer.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( () -> (short) randomGenerator.nextInt() ) ), Short.class, Short.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( randomGenerator::nextFloat ) ), Float.class, Float.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( randomGenerator::nextDouble ) ), Double.class, Double.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( () -> (byte) randomGenerator.nextInt() ) ), Byte.class, Byte.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( randomGenerator::nextBoolean ) ), Boolean.class, Boolean.TYPE);
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ) ) ), java.time.Instant.class );
+        fuzzer.addTypeRule( IFuzzingRule.fromSupplier( wrapper.apply( () -> java.time.Instant.ofEpochMilli( randomGenerator.nextLong() ).atZone( ZoneId.systemDefault() ) ) ), ZonedDateTime.class  );
     }
 
     /**
      * Returns the random generator used by this class.
      *
      * @return random generator, never <code>null</code>
-     * @see #Randomizer(RandomGenerator)
+     * @see #RandomUtils(RandomGenerator)
      */
     public RandomGenerator getRandomGenerator()
     {
